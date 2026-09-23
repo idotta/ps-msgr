@@ -1,0 +1,19 @@
+# C
+*.o
+*.a
+*.so
+*.d
+build/
+
+# C#
+bin/
+obj/
+*.user
+.vs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
