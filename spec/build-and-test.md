@@ -62,8 +62,10 @@ pytest and need the built C library (`PSMSGR_LIBRARY=<build>/libpsmsgr.so.1`).
 
 ## C#
 
-SDK-style projects. Tests use xUnit. On CI, point `PSMSGR_LIBRARY` at the
-built library.
+SDK-style projects. The library targets `netstandard2.1`. The test project
+must target a concrete runtime: the current .NET LTS, with xUnit. On CI, point
+`PSMSGR_LIBRARY` at the built library, which also exercises the `dlopen`
+preload path.
 
 ## Tests
 
@@ -129,7 +131,7 @@ recreates the channel under Python and C# readers.
 | AArch64 native runner, torture test | Weakly ordered memory on real hardware. x86 hides ordering bugs. |
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, `time_t`). |
 | Python (x86-64) | Binding tests plus interop. |
-| C# (x86-64) | Binding tests plus interop. |
+| C# (x86-64) | Binding tests plus interop on .NET LTS; a Mono smoke test of the `netstandard2.1` assembly. |
 | CPack | Build the `.deb` for armhf and amd64. |
 
 ## On-target validation (before each release)
