@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Builds the solution, runs the xUnit tests against the built library (through the
-# PSMSGR_LIBRARY preload) and the Python binding's wheel, checks dotnet format,
+# PSMSGR_LIBRARY preload), checks dotnet format,
 # publishes PsMsgr.AotSmoke with Native AOT and runs it (and with the JIT), and packs the
 # library. Runs in the build container after the release preset (or the build directory
 # given):
@@ -28,13 +28,6 @@ esac
 
 export NUGET_PACKAGES="${NUGET_PACKAGES:-$repo/build/nuget}"
 export PSMSGR_LIBRARY="$build/libpsmsgr.so.1"
-
-# The interop tests run a Python reader and writer: the ps_msgr wheel, installed into a
-# scratch directory as bindings/python/check.sh does.
-cp -R "$repo/bindings/python/pyproject.toml" "$repo/bindings/python/README.md" "$repo/bindings/python/src" "$tmp/"
-python3 -m pip wheel --quiet --no-deps --no-build-isolation --wheel-dir "$tmp/dist" "$tmp"
-python3 -m pip install --quiet --no-deps --no-index --target "$tmp/site" "$tmp"/dist/*.whl
-export PYTHONPATH="$tmp/site"
 
 cd "$here"
 dotnet build PsMsgr.slnx -c Release

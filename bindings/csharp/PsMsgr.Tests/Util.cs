@@ -81,48 +81,32 @@ internal static class Tools
     }
 }
 
-/// <summary>A child process that holds a writer until stopped: tests/interop_helper, or
-/// Python with ps_msgr.</summary>
+/// <summary>A C writer in a child process (tests/interop_helper, interop/README.md) that
+/// publishes a <see cref="MotorStatus"/> per sequence and holds the channel until killed.</summary>
 public sealed class ChildWriter : IDisposable
 {
     private readonly Process _proc;
 
-    public ChildWriter(string file, params string[] args)
+    public ChildWriter(string dir, params ulong[] sequences)
     {
-        var psi = new ProcessStartInfo(file)
+        var psi = new ProcessStartInfo(Tools.BuildFile("tests/interop_helper"),
+            ["write", dir, "chan", "--hold", .. sequences.Select(s => s.ToString())])
         {
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
         };
-        foreach (string a in args)
-            psi.ArgumentList.Add(a);
         _proc = Process.Start(psi)!;
+        Assert.Equal("{\"opened\":true}", ReadLine());
+        foreach (ulong _ in sequences)
+            Assert.StartsWith("{\"generation\":", ReadLine());
     }
 
-    public static ChildWriter C(string dir, uint capacity, uint flags, params string[] payloads)
-    {
-        var w = new ChildWriter(Tools.BuildFile("tests/interop_helper"), ["write", dir, "chan", capacity.ToString(), flags.ToString(), .. payloads]);
-        foreach (string _ in payloads)
-            w.Generations.Add(uint.Parse(w.ReadLine()));
-        return w;
-    }
-
-    public List<uint> Generations { get; } = [];
-
-    public string ReadLine() => _proc.StandardOutput.ReadLine() ?? throw new InvalidOperationException("child exited");
+    private string ReadLine() => _proc.StandardOutput.ReadLine() ?? throw new InvalidOperationException("child exited");
 
     public void Kill()
     {
         _proc.Kill();
         _proc.WaitForExit();
-    }
-
-    /// <summary>Closes the child's stdin and checks that it exits cleanly.</summary>
-    public void Stop()
-    {
-        _proc.StandardInput.Close();
-        _proc.WaitForExit();
-        Assert.Equal(0, _proc.ExitCode);
     }
 
     public void Dispose()

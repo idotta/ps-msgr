@@ -17,7 +17,7 @@ include/psmsgr/psmsgr.h
 include/psmsgr/state.h
 src/                          implementation (state.c, futex/lock helpers, …)
 tools/psmsgr-dump.c
-tests/                        C unit + torture tests (CTest), interop_helper for the bindings
+tests/                        C unit + torture tests (CTest), interop_helper (layouts, C interop agent)
 bench/                        psmsgr-bench: on-target latency benchmark
 spec/                         this directory: the contract
 bindings/
@@ -32,6 +32,12 @@ bindings/
     PsMsgr/PsMsgr.csproj
     PsMsgr.Tests/PsMsgr.Tests.csproj
     PsMsgr.AotSmoke/          Native AOT smoke test (CI only)
+interop/                      cross-language tests: C, Python and C# writers × readers
+  README.md                   the agent protocol and the scenarios
+  check.sh                    builds the agents, pytest, ruff, dotnet format
+  test_interop.py             pytest driver (conftest.py, pyproject.toml: its settings)
+  agent_py.py                 Python agent
+  agent_cs/                   C# agent (Native AOT)
 examples/                     one small writer/reader pair per language
 docker/build.Dockerfile       the build container: CI and local builds
 docker/run.sh                 runs a command in the build container
@@ -149,9 +155,9 @@ the library get correct package dependencies.
 
 `pyproject.toml` with the setuptools PEP 517 backend; it also holds the
 pytest and ruff settings. Tests use pytest and need the built C library
-(`PSMSGR_LIBRARY=<build>/libpsmsgr.so.1`). The tests that need the C side
-also take `tests/interop_helper` and `tools/psmsgr-dump` from the same build
-directory; they are skipped only when `PSMSGR_LIBRARY` is unset.
+(`PSMSGR_LIBRARY=<build>/libpsmsgr.so.1`). The layout tests also take
+`tests/interop_helper` from the same build directory; they are skipped only
+when `PSMSGR_LIBRARY` is unset.
 
 `bindings/python/check.sh [build-dir]` (default `build/release`) is what
 CI runs, in the build container: it builds the wheel, installs it into a
@@ -163,9 +169,8 @@ scratch directory, runs pytest against that, and then `ruff check` and
 `interop_helper layout` prints every size, offset and constant of the
 public headers, which the bindings compare with their mirrors, so that a C
 layout change fails the binding tests instead of corrupting data.
-`interop_helper write DIR NAME CAPACITY FLAGS PAYLOAD...` is a C writer
-that publishes each payload, prints its generation and holds the channel
-until its stdin closes.
+Its other commands make it the C agent of the interop suite
+(`interop/README.md`).
 
 ## C#
 
@@ -177,18 +182,17 @@ selects it for `dotnet test`). Package versions are pinned centrally in
 source, and `Directory.Build.props` holds the common settings, including
 `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild`. The tests point
 `PSMSGR_LIBRARY` at the built library, which also exercises the `dlopen`
-preload path, and take `tests/interop_helper` and `tools/psmsgr-dump` from
-the same build directory; they are skipped only when `PSMSGR_LIBRARY` is
-unset.
+preload path, and take `tests/interop_helper` from the same build directory
+(for the layouts, and as a writer in another process); they are skipped only
+when `PSMSGR_LIBRARY` is unset.
 
 `bindings/csharp/check.sh [build-dir]` (default `build/release`) is what CI
 runs, in the build container: it builds the solution, runs the tests, checks
 `dotnet format --verify-no-changes`, publishes `PsMsgr.AotSmoke` with Native
 AOT for the host (`linux-x64` or `linux-arm64`) and runs it, runs it with the
 JIT too, checks that a missing library fails with a readable message, and
-packs the library into `<build-dir>/csharp/nupkg/`. It installs the Python
-binding's wheel into a scratch directory for the interop tests. NuGet
-packages are cached in `build/nuget` (`NUGET_PACKAGES` overrides it).
+packs the library into `<build-dir>/csharp/nupkg/`. NuGet packages are
+cached in `build/nuget` (`NUGET_PACKAGES` overrides it).
 
 `bindings/csharp/PsMsgr.AotSmoke/` is a console app that calls every public
 API, used only by `check.sh`.
@@ -292,13 +296,31 @@ its own mapping of the file.
 
 ### Interop
 
-Each binding writes and each other binding reads, including a C writer that
-recreates the channel under Python and C# readers. The C side is
-`interop_helper write` as the writer and `psmsgr-dump --hex` as the reader.
-`bindings/python/tests/test_interop.py` covers C ⇄ Python, and
-`bindings/csharp/PsMsgr.Tests/InteropTests.cs` covers C ⇄ C# and
-Python ⇄ C# (with the Python binding's wheel, the motor-status struct in
-both directions).
+`interop/` runs C, Python and C# on either side of a channel, each in its
+own process. One agent per language (`tests/interop_helper`,
+`interop/agent_py.py` with the installed wheel, and `interop/agent_cs/`
+published with Native AOT) speaks the same small command-line protocol
+through its binding: `write`, `read`, `wait`, `alive` and `payload-layout`,
+one JSON result per line of stdout, and a session mode that keeps reader
+handles open across commands on stdin. The payload is the motor-status
+struct of c-api.md, with every field derived from its sequence number.
+`interop/README.md` defines the protocol and the scenarios.
+
+The pytest driver runs every writer language against every reader
+language, the same one included (9 pairs), for: the last of several values
+bit-exact; a lazy reader attaching exactly once; `wait` woken by a publish,
+and `NOTSUP` on a `NO_NOTIFY` channel; `RECREATE` with another capacity and
+payload type under an attached reader; a writer killed with `SIGKILL` and
+replaced by one in another language; and a writer at 1 kHz for 2 s with a
+polling and a waiting reader per language at once (one run per writer
+language), checking every value read for consistency and the generations for
+order. It also checks that `WRITER_EXISTS` and `MISMATCH` from another
+language's channel map to each binding's exception or code, and that the
+three agents agree on the struct's size and offsets.
+
+The bindings' own tests stay single-language: the layout comparison with
+`interop_helper layout`, and a C# test that uses `interop_helper write` as
+the writer in another process.
 
 ### Sanitizers
 
@@ -328,10 +350,11 @@ both directions).
 |---|---|
 | x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. All jobs run in the build container. |
 | Format | `clang-format --dry-run --Werror` on the C and C++ sources, in the build container. |
-| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. Also runs `bindings/python/check.sh` and `bindings/csharp/check.sh` (Native AOT for `linux-arm64`), the binding tests on weakly ordered memory. |
+| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. Also runs `bindings/python/check.sh`, `bindings/csharp/check.sh` and `interop/check.sh` (Native AOT for `linux-arm64`), the binding and interop tests on weakly ordered memory. |
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, 64-bit `time_t`) plus the `libatomic` check. |
-| Python (x86-64) | `release` preset, then `bindings/python/check.sh`: binding tests plus interop against the installed wheel, and ruff. |
-| C# (x86-64) | `release` preset, then `bindings/csharp/check.sh`: binding tests plus interop on .NET LTS, `dotnet format`, the Native AOT smoke below, and the `.nupkg` as an artifact. |
+| Python (x86-64) | `release` preset, then `bindings/python/check.sh`: binding tests against the installed wheel, and ruff. |
+| C# (x86-64) | `release` preset, then `bindings/csharp/check.sh`: binding tests on .NET LTS, `dotnet format`, the Native AOT smoke below, and the `.nupkg` as an artifact. |
+| Interop (x86-64) | `release` preset, then `interop/check.sh`: the cross-language suite with the C agent, the Python agent on the installed wheel and the C# agent published with Native AOT for linux-x64, then ruff and `dotnet format`. |
 | C# Native AOT (in the C# job) | `dotnet publish` of `PsMsgr.AotSmoke` (`PublishAot=true`) with `TrimmerSingleWarn=false` (per-warning detail for library code) and IL2xxx/IL3xxx as errors (`TreatWarningsAsErrors`). Publish-time analysis only covers code the app reaches, so the smoke app MUST call every public API, including the generic helpers with a sample struct. Builds for linux-x64 and runs it. |
 | CPack | Build the `.deb` for armhf and amd64. |
 
