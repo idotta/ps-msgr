@@ -9,6 +9,7 @@ README.md
 spec/                         this directory: the contract
 c/
   CMakeLists.txt
+  CMakePresets.json
   cmake/arm-linux-gnueabihf.cmake   cross toolchain file (BeagleBone Black)
   include/psmsgr/psmsgr.h
   include/psmsgr/state.h
@@ -27,22 +28,80 @@ csharp/
   PsMsgr.AotSmoke/            Native AOT smoke test (CI only)
 interop/                      cross-language tests (C ⇄ Python ⇄ C#)
 examples/                     one small writer/reader pair per language
+docker/build.Dockerfile       the build container: CI and local builds
 .github/workflows/
 ```
 
+## Toolchain
+
+All builds, for every target, run in **one build container** based on
+`debian:trixie`, defined in `docker/build.Dockerfile`. CI and developers use
+the same image.
+
+- **Why trixie:** a binary built against a newer glibc than the target's
+  fails to load there. Building on the target's release rules that out.
+- **Contents:**
+  - `build-essential`, `crossbuild-essential-armhf`
+  - `cmake`, `ninja-build`
+  - `qemu-user` (runs armhf tests)
+  - `clang` (second compiler, sanitizers)
+  - `python3`, the .NET SDK, and `mono-runtime` if trixie still ships it.
+    Otherwise the Mono smoke test uses the Mono project's packages.
+- **Two targets:**
+  - host (x86-64 or AArch64, for development and CI)
+  - `armhf` (BeagleBone Black), cross-compiled with Debian's
+    `arm-linux-gnueabihf-gcc`
+- **Code generation:** keep Debian armhf's defaults (ARMv7-A, Thumb-2,
+  VFPv3-D16). No `-mcpu`/`-mfpu` flags: the library has no use for NEON.
+- **64-bit `time_t`:** trixie armhf defaults to 64-bit `time_t`
+  (`_TIME_BITS=64`) and 64-bit `off_t`. The public API contains no
+  `time_t`, `off_t` or `struct timespec`, so the ABI doesn't depend on
+  either.
+- **Running armhf tests:** the toolchain file sets
+  `CMAKE_CROSSCOMPILING_EMULATOR` to `qemu-arm -L /usr/arm-linux-gnueabihf`,
+  so `ctest` runs armhf tests unchanged. If qemu-user turns out to mishandle
+  OFD locks or cross-process futexes, those tests are marked
+  `board-only` and run in the on-target validation instead.
+- **On-target debugging:** `gdbserver` on the board, `gdb-multiarch` in the
+  container.
+
+### CMake presets
+
+`c/CMakePresets.json` (Ninja generator; builds go to `build/<preset>`):
+
+| Preset | Target | Purpose |
+|---|---|---|
+| `dev` | host | Debug build with ASan+UBSan: the everyday build. |
+| `tsan` | host | Debug build with ThreadSanitizer. |
+| `release` | host | `RelWithDebInfo`; used by the binding tests and interop. |
+| `armhf` | armhf | Debug build; tests run under qemu. |
+| `armhf-release` | armhf | Release build plus CPack `.deb` for the board. |
+
+Also add a workflow preset per target (configure → build → test), so that
+one command reproduces a CI job: `cmake --workflow --preset dev`.
+
 ## C library
 
-- CMake ≥ 3.16, C11, and no dependencies beyond glibc. Needs Linux ≥ 3.15
-  for OFD locks. `_GNU_SOURCE` is set internally.
+- CMake ≥ 3.25 (presets v6, workflow presets; trixie ships 3.31), C11, and
+  no dependencies beyond glibc. `_GNU_SOURCE` is set internally.
+- `CMAKE_EXPORT_COMPILE_COMMANDS` is on, for clangd.
 - Build outputs:
   - `libpsmsgr.so.1` (SONAME) and `libpsmsgr.a`
   - `psmsgr-dump`
   - a CMake package config (`find_package(psmsgr)`) and `psmsgr.pc`
-- Warnings: `-Wall -Wextra -Wpedantic -Wconversion`, promoted to `-Werror`
-  in CI. Built with `-fvisibility=hidden`.
-- Cross build for the BBB: `cmake -DCMAKE_TOOLCHAIN_FILE=c/cmake/arm-linux-gnueabihf.cmake`.
-  Keep Debian armhf's default code generation (ARMv7-A, Thumb-2, VFPv3-D16).
-  The library has no use for NEON-specific flags.
+- Flags:
+  - Build: `-std=c11 -O2 -fPIC -fvisibility=hidden`.
+  - Warnings: `-Wall -Wextra -Wpedantic -Wconversion -Wshadow`, promoted to
+    `-Werror` in CI.
+  - Hardening, matching Debian's `dpkg-buildflags`: `-D_FORTIFY_SOURCE=3`,
+    `-fstack-protector-strong`, `-fstack-clash-protection` and
+    `-Wl,-z,relro,-z,now`.
+  - Link with `-Wl,--no-undefined` and a version script that exports only
+    `psmsgr_*`.
+- **No `libatomic`:** CI fails if `nm -D libpsmsgr.so.1` lists any
+  `__atomic_*` symbol, or if `readelf -d` shows `libatomic` in `NEEDED`.
+  Either would mean a non-lock-free (e.g. 64-bit) atomic slipped in, which
+  on ARMv7 becomes a library call instead of an `ldrex`/`strex` loop.
 - Options:
 
   | Option | Default | Effect |
@@ -52,9 +111,11 @@ examples/                     one small writer/reader pair per language
   | `PSMSGR_BUILD_BENCH` | `OFF` | Build the benchmarks. |
   | `PSMSGR_SANITIZE` | empty | Sanitizer to enable: `address`, `undefined` or `thread`. |
 
-- Packaging: CPack DEB for `armhf` and `amd64` produces `libpsmsgr1`,
-  `libpsmsgr-dev` and `psmsgr-tools`. Installing the `.deb` is the supported
-  deployment path on the BBB.
+- Packaging: CPack DEB for `armhf` and `amd64`, built in the trixie
+  container, produces `libpsmsgr1`, `libpsmsgr-dev` and `psmsgr-tools`.
+  Installing the `.deb` is the supported deployment path on the BBB.
+  Package dependencies come from `dpkg-shlibdeps` (the container has
+  `libc6:armhf` via multiarch for that) and are therefore trixie's.
 
 ## Python
 
@@ -150,9 +211,9 @@ recreates the channel under Python and C# readers.
 
 | Job | Purpose |
 |---|---|
-| x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. |
-| AArch64 native runner, torture test | Weakly ordered memory on real hardware. x86 hides ordering bugs. |
-| armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, `time_t`). |
+| x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. All jobs run in the build container. |
+| AArch64 native runner, torture test | Weakly ordered memory on real hardware. x86 hides ordering bugs. Uses the arm64 build of the same container image. |
+| armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, 64-bit `time_t`) plus the `libatomic` check. |
 | Python (x86-64) | Binding tests plus interop. |
 | C# (x86-64) | Binding tests plus interop on .NET LTS; a Mono smoke test of the `netstandard2.1` assembly. |
 | C# Native AOT | `dotnet publish -p:PublishAot=true` of `PsMsgr.AotSmoke` with `TrimmerSingleWarn=false` (per-warning detail for library code) and IL2xxx/IL3xxx as errors. Publish-time analysis only covers code the app reaches, so the smoke app MUST call every public API, including the generic helpers with a sample struct. Builds for linux-x64 and runs it. |

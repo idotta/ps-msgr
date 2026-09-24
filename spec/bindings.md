@@ -35,10 +35,9 @@ The rules that apply to both:
 
 ## Python — `ps_msgr`
 
-- Python ≥ 3.9 (Debian 11 on older BeagleBone images). No runtime
-  dependencies. `ctypes`, so it is a pure-Python wheel. Modules use
-  `from __future__ import annotations`, because the `X | Y` annotations
-  below don't evaluate at runtime on 3.9.
+- Python ≥ 3.11. The target (trixie) ships 3.13; the lower floor only
+  exists so that development hosts with an older Python still work. No
+  runtime dependencies. `ctypes`, so it is a pure-Python wheel.
 - `ctypes` releases the GIL during foreign calls, so a blocking `wait`
   doesn't stall other threads.
 - When `wait` gets `PSMSGR_E_INTR`, the binding returns to the interpreter
