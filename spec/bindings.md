@@ -29,7 +29,7 @@ The rules that apply to both:
   Like the C flag it is reported once per attach. If the result that
   carried it raises instead (`PSMSGR_E_TOOSMALL` from a read into a
   caller's buffer), the next result reports it.
-- `PSMSGR_E_NODATA` is not an error: it maps to `None` / `false`. Every other
+- `PSMSGR_E_NODATA` is not an error: it maps to `None` / `false` / `null`. Every other
   negative code maps to an exception that carries the code and, for
   `PSMSGR_E_SYS`, the `errno`. `PSMSGR_E_BUSY` gets its own exception type
   (`ChannelBusyError` / `PsMsgrError.Busy`), documented as transient.
@@ -150,12 +150,17 @@ Payload encoding is up to the application: `struct`, `ctypes.Structure`,
 ## C# — `PsMsgr`
 
 - Target framework: **`netstandard2.1`** only. That one build runs on
-  .NET Core 3.x / .NET 5+, Mono 6.4+ (Debian's `mono-runtime` on armhf) and
-  Unity, and can be compiled into Native AOT apps.
-  - Built with `LangVersion` `latest`, `Nullable` `enable` and
-    `AllowUnsafeBlocks`.
+  .NET Core 3.x / .NET 5+ and can be compiled into Native AOT apps. No
+  package dependencies.
+  - Built with `LangVersion` `latest`, `Nullable` `enable`,
+    `AllowUnsafeBlocks` and `TreatWarningsAsErrors`.
   - Compiler attributes that `netstandard2.1` lacks (`IsExternalInit` for
     records and `init`) are defined `internal`.
+- **Mono is not supported.** Mono resolves a P/Invoke when it compiles the
+  calling method, before the static constructor that honors
+  `PSMSGR_LIBRARY` runs, and Mono 6.12's corlib (trixie's) lacks the
+  `ref readonly` signature of `ReadOnlySpan<T>.GetPinnableReference`, which
+  `fixed` on a span binds to.
 
 ### Native AOT compatibility
 
@@ -167,7 +172,7 @@ Rules that keep it that way:
   (`Marshal.SizeOf(Type)`, `Marshal.PtrToStructure(IntPtr, Type)`),
   `Activator`, `Expression`, `Reflection.Emit` or runtime-generated code.
   Generic payload helpers are constrained to `unmanaged` and use
-  `sizeof(T)`, pointers and `MemoryMarshal.Read/Write<T>`. They use no
+  `sizeof(T)` and pointers. They use no
   `Unsafe` class: on `netstandard2.1` that would pull in a package
   dependency, and the library has none.
 - No P/Invoke callbacks or delegates. The C API has none, and it MUST NOT
@@ -187,17 +192,24 @@ Rules that keep it that way:
 - P/Invoke uses `[DllImport("libpsmsgr.so.1")]` with the versioned name
   hard-coded, and
   **blittable signatures only**: raw pointers, integers, and `byte*` for
-  strings.
+  strings. The three structs are mirrored with `[StructLayout(Sequential)]`,
+  and the tests compare their sizes and offsets, and every constant, with
+  `tests/interop_helper layout`. Options are set up with
+  `psmsgr_state_options_init_sized(&opt, sizeof(opt))`.
   - The binding encodes strings to NUL-terminated UTF-8 itself, only in
     `Open` and `Unlink` (not the hot path).
   - Native handles live in `SafeHandle` subclasses. The P/Invoke signatures
     take the raw pointer (`DangerousGetHandle()`), and the wrapper checks for
     disposal first. Wrapper objects are not thread-safe, which matches the C
     API contract, so this is sound, and it avoids SafeHandle marshalling on
-    the hot path.
-  - Calls that can return `PSMSGR_E_SYS` use `SetLastError = true`. `errno`
-    is read with `Marshal.GetLastWin32Error()`, which works on Unix and in
-    AOT.
+    the hot path. Each call is followed by `GC.KeepAlive(this)`, so that the
+    handle's finalizer cannot close it during the call (e.g. a blocking
+    `Wait` on an otherwise unreferenced reader).
+  - Calls that can return `PSMSGR_E_SYS` according to the header
+    (`writer_open`, `reader_open`, `read`, `peek`, `wait`, `writer_alive`,
+    `describe`, `unlink`) use `SetLastError = true`. `errno` is read with
+    `Marshal.GetLastWin32Error()`, which works on Unix and in AOT, and its
+    text comes from libc's `strerror`.
 - `PSMSGR_LIBRARY` override: `NativeLibrary` isn't available on
   `netstandard2.1`. The static
   constructor of the interop class calls
@@ -205,11 +217,17 @@ Rules that keep it that way:
   `[DllImport("libdl.so.2")]` when the variable is set. glibc reuses an
   already-loaded library whose SONAME matches a later `dlopen` of that name,
   so the `DllImport` resolves to the preloaded copy. This works identically
-  under JIT and Native AOT. Without the variable, the normal search path
-  applies (`LD_LIBRARY_PATH`, `ld.so.cache`).
+  under JIT and Native AOT: both bind a P/Invoke at its first call, after the
+  static constructor has run (a bare P/Invoke such as `Clock.NowNs()` runs
+  it too). Without the variable, the normal search path applies
+  (`LD_LIBRARY_PATH`, `ld.so.cache`).
+- Load failures surface at the first call as a `TypeInitializationException`
+  whose inner exception is a `DllNotFoundException` naming the library and
+  the loader's error (a missing library, or a missing `psmsgr_version`), or
+  a `PsMsgrException` with code `NotSup` for an incompatible version.
 - The NuGet package MAY bundle `runtimes/linux-arm/native/libpsmsgr.so.1` and
-  `runtimes/linux-x64/native/libpsmsgr.so.1` (for development). .NET Core
-  honors these; Mono does not, so on Mono the library comes from the system.
+  `runtimes/linux-x64/native/libpsmsgr.so.1` (for development). It doesn't
+  yet: the library comes from the system.
 
 ```csharp
 namespace PsMsgr;
@@ -220,8 +238,15 @@ public sealed class StateWriter : IDisposable
     public uint Capacity { get; }
     public uint Publish(ReadOnlySpan<byte> data);                     // -> generation
     public uint Publish<T>(in T value) where T : unmanaged;           // sizeof(T) bytes
-    public WriteScope Begin();       // ref struct: Span<byte> Buffer; uint Commit(int length); Dispose() aborts if not committed
-    public void Dispose();
+    public WriteScope Begin();
+    public void Dispose();                                            // aborts an open WriteScope
+}
+
+public readonly ref struct WriteScope                                 // use with `using`
+{
+    public Span<byte> Buffer { get; }                                 // Capacity bytes, 32-byte aligned
+    public uint Commit(int length);                                   // -> generation; TooBig keeps it open
+    public void Dispose();                                            // aborts unless committed
 }
 
 public sealed class StateOptions
@@ -239,32 +264,64 @@ public sealed class StateOptions
 public sealed class StateReader : IDisposable
 {
     public static StateReader Open(string name, string? directory = null);
-    public bool TryRead(Span<byte> destination, out StateInfo info); // false: no data; throws if too small
-    public bool TryRead<T>(out T value, out StateInfo info) where T : unmanaged; // throws if length != sizeof(T)
-    public byte[]? Read(out StateInfo info);                          // allocating convenience
+    public bool TryRead(Span<byte> destination, out StateInfo info); // false: no data; TooSmall if too small
+    public bool TryRead<T>(out T value, out StateInfo info) where T : unmanaged; // Mismatch if length != sizeof(T)
+    public byte[]? Read(out StateInfo info);                          // allocating convenience; null: no data
     public bool TryPeek(out StateInfo info);                          // no copy, no syscall
-    public bool Wait(uint lastGeneration, TimeSpan timeout, CancellationToken ct = default);
+    public bool Wait(uint lastGeneration, TimeSpan timeout, CancellationToken cancellationToken = default);
     public bool IsWriterAlive { get; }
-    public ChannelDesc? Describe();
+    public ChannelDesc? Describe();                                   // null: not attached
     public void Dispose();
 }
 
 public readonly record struct StateInfo(uint Generation, uint Length, ulong TimestampNs, bool Attached)
 {
-    public TimeSpan Age => /* from Clock.NowNs() - TimestampNs */;
+    public TimeSpan Age { get; }                                      // Clock.NowNs() - TimestampNs
 }
 public readonly record struct ChannelDesc(uint Capacity, uint SlotCount, uint PayloadType, bool Notify);
 
 public static class Clock   { public static ulong NowNs(); }             // psmsgr_now_ns
-public static class Channel { public static bool Unlink(string name, string? directory = null); }
+public static class Channel { public static bool Unlink(string name, string? directory = null); } // false: absent
 
-public class PsMsgrException : IOException { public PsMsgrError Code { get; } public int Errno { get; } }
-public enum PsMsgrError { Inval = -1, Sys = -2, /* ... mirrors PSMSGR_E_* */ }
+public class PsMsgrException : IOException
+{
+    public PsMsgrException(PsMsgrError code, string? message = null, int errno = 0, string? channelName = null);
+    public PsMsgrError Code { get; }
+    public int Errno { get; }                                         // PSMSGR_E_SYS only, else 0
+    public string? ChannelName { get; }
+}
+public enum PsMsgrError { Inval = -1, Sys = -2, NoData = -3, TooSmall = -4, TooBig = -5, Busy = -6,
+    Timeout = -7, Intr = -8, WriterExists = -9, Mismatch = -10, Format = -11, NotSup = -12, State = -13 }
 ```
 
-- `Wait` with a `CancellationToken` waits in slices of at most 100 ms and
-  checks the token between slices. `Timeout.InfiniteTimeSpan` means no
-  timeout.
+- Every failing call throws `PsMsgrException`; there are no subclasses,
+  the `Code` tells them apart. The message is `strerror(errno)` with
+  `(errno N)` for `Sys`, else `psmsgr_strerror(code)` or the binding's own
+  text, followed by `: 'channel'`, e.g.
+  `No such file or directory (errno 2): 'chan'`.
+- `TryRead<T>` fails with `Mismatch` when the payload length isn't
+  `sizeof(T)`, in either direction. Like a `TooSmall` from `TryRead`, such a
+  result passes its `Attached` on to the next result.
+- `Wait`: `Timeout.InfiniteTimeSpan` means no timeout, `TimeSpan.Zero` polls
+  once, and a positive timeout is rounded up to whole milliseconds per call,
+  so it never becomes a poll. Timeouts beyond the C API's `int32_t`
+  milliseconds (up to `TimeSpan.MaxValue`) are waited in chunks. With a
+  cancelable `CancellationToken`, it waits in slices of at most 100 ms and
+  checks the token before each slice (`OperationCanceledException`).
+  `PSMSGR_E_INTR` is expected, not only from the application: the runtime
+  signals threads too. `Wait` retries with the remaining time.
+- `WriteScope` holds only an id; the writer holds the state. So copies of a
+  scope, including the read-only variable of a `using`, stay coherent: a
+  commit through one ends them all, and `Dispose` after a commit does
+  nothing. `Buffer` and `Commit` on an ended scope throw
+  `InvalidOperationException`.
+- Argument validation: a `null` name or options throw
+  `ArgumentNullException`, a NUL character in a name or directory
+  `ArgumentException`, a negative timeout (other than `InfiniteTimeSpan`) or
+  commit length `ArgumentOutOfRangeException`. The library validates
+  everything else (`Inval`). The integer arguments are already `uint`.
+- Calls on a disposed handle throw `ObjectDisposedException`; `Dispose` is
+  idempotent. `SafeHandle`'s finalizer closes a forgotten handle.
 - `Publish<T>` / `TryRead<T>` copy the raw bytes of `T`. Declare `T` with
   `[StructLayout(LayoutKind.Sequential, Pack = …)]`, matching the C
   definition.

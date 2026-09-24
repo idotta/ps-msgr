@@ -1,0 +1,24 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <RootNamespace>PsMsgr</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Deterministic>true</Deterministic>
+    <PackageId>PsMsgr</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>PS Soluções</Authors>
+    <Description>P/Invoke binding of libpsmsgr: inter-process state exchange over shared memory. Needs libpsmsgr.so.1 (Linux).</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/ps-solucoes/ps-msgr</PackageProjectUrl>
+    <PackageTags>ipc;shared-memory;pubsub;linux;embedded</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+    <InternalsVisibleTo Include="PsMsgr.Tests" />
+  </ItemGroup>
+
+</Project>

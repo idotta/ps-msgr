@@ -41,7 +41,37 @@ RUN dpkg --add-architecture armhf \
         python3-pytest \
         python3-setuptools \
         python3-venv \
+        zlib1g-dev \
  && rm -rf /var/lib/apt/lists/*
+
+# The .NET SDK (current LTS) for the C# binding, from Microsoft's apt
+# repository: trixie does not package it. BuildKit checks the repository's
+# signing key, and apt checks the packages against it. The runtime packages
+# are pinned too, so that the SDK's ">=" dependencies cannot float.
+# zlib1g-dev (above) is what Native AOT links against, with clang.
+ADD --checksum=sha256:d45224d594d969f084232deaaf97c58ca502a9d964c362d7aaef5a76e16b3dd1 \
+    https://packages.microsoft.com/keys/microsoft-2025.asc /usr/share/keyrings/microsoft-2025.asc
+ARG DOTNET_SDK_VERSION=10.0.401-1
+ARG DOTNET_RUNTIME_VERSION=10.0.12-1
+RUN chmod 644 /usr/share/keyrings/microsoft-2025.asc \
+ && echo "deb [signed-by=/usr/share/keyrings/microsoft-2025.asc] https://packages.microsoft.com/debian/13/prod trixie main" \
+        > /etc/apt/sources.list.d/microsoft-prod.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+        dotnet-sdk-10.0=${DOTNET_SDK_VERSION} \
+        dotnet-runtime-10.0=${DOTNET_RUNTIME_VERSION} \
+        dotnet-hostfxr-10.0=${DOTNET_RUNTIME_VERSION} \
+        dotnet-runtime-deps-10.0=${DOTNET_RUNTIME_VERSION} \
+        dotnet-host=${DOTNET_RUNTIME_VERSION} \
+        dotnet-targeting-pack-10.0=${DOTNET_RUNTIME_VERSION} \
+        dotnet-apphost-pack-10.0=${DOTNET_RUNTIME_VERSION} \
+        aspnetcore-runtime-10.0=${DOTNET_RUNTIME_VERSION} \
+        aspnetcore-targeting-pack-10.0=${DOTNET_RUNTIME_VERSION} \
+ && rm -rf /var/lib/apt/lists/*
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=1 \
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE=1
 
 # ruff for the Python binding (trixie does not package it): the pinned
 # wheels from the ruff-wheels stage, installed into a venv without network.

@@ -17,3 +17,7 @@ as described in [`spec/README.md`](spec/README.md).
 - Debian packages for amd64 and armhf, a CMake package config and `psmsgr.pc`.
 - `ps_msgr`: the Python binding (`ctypes`, Python ≥ 3.11, no dependencies),
   in `bindings/python/`.
+- `PsMsgr`: the C# binding (P/Invoke, `netstandard2.1`, Native AOT
+  compatible, no dependencies), in `bindings/csharp/`. CI builds its NuGet
+  package.
+- Build container: the .NET SDK 10 from Microsoft's apt repository.
