@@ -38,7 +38,13 @@ interop/                      cross-language tests: C, Python and C# writers × 
   test_interop.py             pytest driver (conftest.py, pyproject.toml: its settings)
   agent_py.py                 Python agent
   agent_cs/                   C# agent (Native AOT)
-examples/                     one small writer/reader pair per language
+examples/                     one small writer/reader pair per language, all on one channel
+  README.md                   what they show, running any writer × reader, deploying to the BBB
+  check.sh                    builds them, runs writers × readers, ruff, dotnet format
+  motor_status.h              the payload: struct motor_status, MOTOR_STATUS_V1, channel name
+  c/                          motor_writer.c, motor_reader.c (in-tree or standalone CMake)
+  python/                     motor_writer.py, motor_reader.py, motor_status.py (the mirror)
+  csharp/                     MotorWriter/, MotorReader/ (Native AOT), MotorStatus.cs (the mirror)
 docker/build.Dockerfile       the build container: CI and local builds
 docker/run.sh                 runs a command in the build container
 .github/workflows/
@@ -99,7 +105,7 @@ the same image.
 | `dev` | host | Debug build with ASan+UBSan: the everyday build. |
 | `dev-clang` | host | Same as `dev`, built with clang. |
 | `tsan` | host | Debug build with ThreadSanitizer. |
-| `release` | host | `RelWithDebInfo`; used by the binding tests and interop. Also builds the host `.deb`. |
+| `release` | host | `RelWithDebInfo`; used by the binding tests, interop and the examples. Also builds the host `.deb`. |
 | `armhf` | armhf | Debug build; tests run under qemu. |
 | `armhf-release` | armhf | Release build plus CPack `.deb` for the board, including `psmsgr-bench`. |
 
@@ -143,6 +149,7 @@ the library get correct package dependencies.
   | `PSMSGR_BUILD_TESTS` | `ON` | Build the unit and torture tests. |
   | `PSMSGR_BUILD_TOOLS` | `ON` | Build `psmsgr-dump`. |
   | `PSMSGR_BUILD_BENCH` | `OFF` | Build `psmsgr-bench`, installed with the tools. `dev`, `dev-clang` and `armhf-release` turn it on. |
+  | `PSMSGR_BUILD_EXAMPLES` | `OFF` | Build the C examples (`examples/c`), not installed or packaged. `dev`, `dev-clang`, `release` and `armhf-release` turn it on. |
   | `PSMSGR_SANITIZE` | empty | Sanitizer to enable: `address`, `undefined` or `thread`. |
 
 - Packaging: CPack DEB for `armhf` and `amd64`, built in the trixie
@@ -322,6 +329,30 @@ The bindings' own tests stay single-language: the layout comparison with
 `interop_helper layout`, and a C# test that uses `interop_helper write` as
 the writer in another process.
 
+### Examples
+
+`examples/` holds a writer and a reader per language, written for people to
+read; the interop agents are the test tools. They share the channel
+`motor` and the payload of c-api.md's usage example, so that any writer
+works with any reader. `examples/check.sh [build-dir]` (default
+`build/release`), in the build container:
+
+- builds the C examples in-tree, and standalone with `find_package(psmsgr)`
+  against the build installed to a scratch prefix (the way an application
+  builds), with `-Werror`;
+- installs the Python wheel, and publishes the C# examples with Native AOT
+  for the host, and on x86-64 hosts also for `linux-arm` (built, not run);
+- runs every writer language against every reader language (9 pairs), plus
+  the standalone C pair. Each reader starts before its writer, and its
+  printed values must be ones the writer printed, in order;
+- checks that each reader started after its writer exited reports its last
+  value and `writer gone`, reports a live but silent writer as `stale`, and
+  refuses a channel with another payload type (written by `interop_helper`);
+  and that a writer replaces that channel (`RECREATE`);
+- runs `ruff check` and `ruff format --check` on `examples/python` with the
+  binding's settings (`bindings/python/pyproject.toml`), and
+  `dotnet format --verify-no-changes` on `examples/csharp/Examples.slnx`.
+
 ### Sanitizers
 
 - ASan+UBSan on the unit and torture tests.
@@ -333,9 +364,10 @@ the writer in another process.
 
 - Every source file starts with `SPDX-License-Identifier: Apache-2.0`.
 - Formatting and linting are enforced in CI: `.clang-format` for C, `ruff`
-  for Python, `.editorconfig` plus `dotnet format` for C# (in
-  `bindings/csharp/check.sh`; the build also fails on the style rules
-  marked `warning`). `.editorconfig`
+  for Python, `.editorconfig` plus `dotnet format` for C# (in the
+  `check.sh` of `bindings/csharp`, `interop` and `examples`; the build also
+  fails on the style rules marked `warning`). The format job checks every
+  C source in git, examples included. `.editorconfig`
   also sets encoding, line endings and indentation for every other file.
 - The C check uses the build container's `clang-format`, because releases
   format differently. To reformat the tree:
@@ -350,11 +382,11 @@ the writer in another process.
 |---|---|
 | x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. All jobs run in the build container. |
 | Format | `clang-format --dry-run --Werror` on the C and C++ sources, in the build container. |
-| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. Also runs `bindings/python/check.sh`, `bindings/csharp/check.sh` and `interop/check.sh` (Native AOT for `linux-arm64`), the binding and interop tests on weakly ordered memory. |
+| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. Also runs `bindings/python/check.sh`, `bindings/csharp/check.sh`, `interop/check.sh` and `examples/check.sh` (Native AOT for `linux-arm64`), the binding, interop and example tests on weakly ordered memory. |
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, 64-bit `time_t`) plus the `libatomic` check. |
 | Python (x86-64) | `release` preset, then `bindings/python/check.sh`: binding tests against the installed wheel, and ruff. |
 | C# (x86-64) | `release` preset, then `bindings/csharp/check.sh`: binding tests on .NET LTS, `dotnet format`, the Native AOT smoke below, and the `.nupkg` as an artifact. |
-| Interop (x86-64) | `release` preset, then `interop/check.sh`: the cross-language suite with the C agent, the Python agent on the installed wheel and the C# agent published with Native AOT for linux-x64, then ruff and `dotnet format`. |
+| Interop (x86-64) | `release` preset, then `interop/check.sh`: the cross-language suite with the C agent, the Python agent on the installed wheel and the C# agent published with Native AOT for linux-x64, then ruff and `dotnet format`. Then `examples/check.sh` (see *Examples*). |
 | C# Native AOT (in the C# job) | `dotnet publish` of `PsMsgr.AotSmoke` (`PublishAot=true`) with `TrimmerSingleWarn=false` (per-warning detail for library code) and IL2xxx/IL3xxx as errors (`TreatWarningsAsErrors`). Publish-time analysis only covers code the app reaches, so the smoke app MUST call every public API, including the generic helpers with a sample struct. Builds for linux-x64 and runs it. |
 | CPack | Build the `.deb` for armhf and amd64. |
 

@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/bindings/">
+    <Project Path="../../bindings/csharp/PsMsgr/PsMsgr.csproj" />
+  </Folder>
+  <Project Path="MotorReader/MotorReader.csproj" />
+  <Project Path="MotorWriter/MotorWriter.csproj" />
+</Solution>

@@ -26,6 +26,7 @@ the Python binding and the C# binding are implemented and tested in CI
 | `bench/` | `psmsgr-bench`: latency on the target ([how to run it](bench/README.md)) |
 | `bindings/python/` | `ps_msgr`: ctypes binding ([usage](bindings/python/README.md)) |
 | `bindings/csharp/` | `PsMsgr`: P/Invoke binding, Native AOT compatible ([usage](bindings/csharp/README.md)) |
+| `examples/` | A writer and a reader in C, Python and C#, all on one channel ([how to run them](examples/README.md)) |
 | `docker/` | Build container and `run.sh` |
 
 ## Building
@@ -40,6 +41,7 @@ docker/run.sh cmake --workflow --preset armhf          # BeagleBone Black: tests
 docker/run.sh cmake --workflow --preset armhf-release  # + libpsmsgr1, -dev and psmsgr-tools .debs
 docker/run.sh bindings/python/check.sh                 # Python binding, after the release preset
 docker/run.sh bindings/csharp/check.sh                 # C# binding, after the release preset
+docker/run.sh examples/check.sh                        # examples, after the release preset
 ```
 
 Presets: `dev`, `dev-clang`, `tsan`, `release`, `armhf` and `armhf-release`.
