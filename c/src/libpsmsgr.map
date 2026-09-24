@@ -1,0 +1,7 @@
+/* Export only the public API; everything else stays local. */
+PSMSGR_1 {
+    global:
+        psmsgr_*;
+    local:
+        *;
+};

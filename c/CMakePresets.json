@@ -1,0 +1,148 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "PSMSGR_WERROR": "ON"
+      }
+    },
+    {
+      "name": "dev",
+      "displayName": "Host debug, ASan + UBSan",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "PSMSGR_SANITIZE": "address,undefined"
+      }
+    },
+    {
+      "name": "dev-clang",
+      "displayName": "Host debug with clang, ASan + UBSan",
+      "inherits": "dev",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "tsan",
+      "displayName": "Host debug, ThreadSanitizer",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "PSMSGR_SANITIZE": "thread"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Host release (bindings, interop) + .deb",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_PREFIX": "/usr"
+      }
+    },
+    {
+      "name": "armhf",
+      "displayName": "BeagleBone Black debug (tests under qemu)",
+      "inherits": "base",
+      "toolchainFile": "${sourceDir}/cmake/arm-linux-gnueabihf.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "armhf-release",
+      "displayName": "BeagleBone Black release + .deb",
+      "inherits": "armhf",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_PREFIX": "/usr",
+        "CMAKE_INSTALL_LIBDIR": "lib/arm-linux-gnueabihf"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev", "configurePreset": "dev" },
+    { "name": "dev-clang", "configurePreset": "dev-clang" },
+    { "name": "tsan", "configurePreset": "tsan" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "armhf", "configurePreset": "armhf" },
+    { "name": "armhf-release", "configurePreset": "armhf-release" }
+  ],
+  "testPresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error", "stopOnFailure": false }
+    },
+    { "name": "dev", "inherits": "base", "configurePreset": "dev" },
+    { "name": "dev-clang", "inherits": "base", "configurePreset": "dev-clang" },
+    { "name": "tsan", "inherits": "base", "configurePreset": "tsan" },
+    { "name": "release", "inherits": "base", "configurePreset": "release" },
+    { "name": "armhf", "inherits": "base", "configurePreset": "armhf" },
+    { "name": "armhf-release", "inherits": "base", "configurePreset": "armhf-release" }
+  ],
+  "packagePresets": [
+    { "name": "release", "configurePreset": "release", "generators": [ "DEB" ] },
+    { "name": "armhf-release", "configurePreset": "armhf-release", "generators": [ "DEB" ] }
+  ],
+  "workflowPresets": [
+    {
+      "name": "dev",
+      "steps": [
+        { "type": "configure", "name": "dev" },
+        { "type": "build", "name": "dev" },
+        { "type": "test", "name": "dev" }
+      ]
+    },
+    {
+      "name": "dev-clang",
+      "steps": [
+        { "type": "configure", "name": "dev-clang" },
+        { "type": "build", "name": "dev-clang" },
+        { "type": "test", "name": "dev-clang" }
+      ]
+    },
+    {
+      "name": "tsan",
+      "steps": [
+        { "type": "configure", "name": "tsan" },
+        { "type": "build", "name": "tsan" },
+        { "type": "test", "name": "tsan" }
+      ]
+    },
+    {
+      "name": "release",
+      "steps": [
+        { "type": "configure", "name": "release" },
+        { "type": "build", "name": "release" },
+        { "type": "test", "name": "release" },
+        { "type": "package", "name": "release" }
+      ]
+    },
+    {
+      "name": "armhf",
+      "steps": [
+        { "type": "configure", "name": "armhf" },
+        { "type": "build", "name": "armhf" },
+        { "type": "test", "name": "armhf" }
+      ]
+    },
+    {
+      "name": "armhf-release",
+      "steps": [
+        { "type": "configure", "name": "armhf-release" },
+        { "type": "build", "name": "armhf-release" },
+        { "type": "test", "name": "armhf-release" },
+        { "type": "package", "name": "armhf-release" }
+      ]
+    }
+  ]
+}

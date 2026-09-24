@@ -29,6 +29,7 @@ csharp/
 interop/                      cross-language tests (C ⇄ Python ⇄ C#)
 examples/                     one small writer/reader pair per language
 docker/build.Dockerfile       the build container: CI and local builds
+docker/run.sh                 runs a command in the build container
 .github/workflows/
 ```
 
@@ -72,13 +73,21 @@ the same image.
 | Preset | Target | Purpose |
 |---|---|---|
 | `dev` | host | Debug build with ASan+UBSan: the everyday build. |
+| `dev-clang` | host | Same as `dev`, built with clang. |
 | `tsan` | host | Debug build with ThreadSanitizer. |
-| `release` | host | `RelWithDebInfo`; used by the binding tests and interop. |
+| `release` | host | `RelWithDebInfo`; used by the binding tests and interop. Also builds the host `.deb`. |
 | `armhf` | armhf | Debug build; tests run under qemu. |
 | `armhf-release` | armhf | Release build plus CPack `.deb` for the board. |
 
-Also add a workflow preset per target (configure → build → test), so that
-one command reproduces a CI job: `cmake --workflow --preset dev`.
+Each preset also has a workflow preset (configure → build → test, plus
+package for the release presets), so one command reproduces a CI job:
+`cmake --workflow --preset dev`. `docker/run.sh` runs it in the build
+container. All presets set `PSMSGR_WERROR=ON`; the option defaults to `OFF`
+for people building from source with other compilers.
+
+Packages install into the Debian multiarch directory
+(`/usr/lib/<triplet>`) and ship a `shlibs` file, so programs built against
+the library get correct package dependencies.
 
 ## C library
 
