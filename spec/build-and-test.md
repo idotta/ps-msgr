@@ -235,8 +235,7 @@ its own mapping of the file.
   fractions allowed). `docker/run.sh` passes it through. CTest's 300 s
   timeout still applies, so for long runs, run the binary directly. On the
   board, use `PSMSGR_TORTURE_SECONDS=60` (at 1 s the 1 MiB variants get
-  only about 15 publishes). The 6 variants then take 6 minutes, over the
-  CTest timeout, so run `test_torture` directly there.
+  only about 15 publishes): the 6 variants then take 6 minutes.
 - **Fault injection.** A last test sets the hidden hook
   `psmi_test_skip_seq_recheck` (`src/internal.h`), which makes readers skip
   the second `seq` comparison, and MUST detect torn reads. Without this, a

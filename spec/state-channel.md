@@ -504,9 +504,14 @@ Reboots clear tmpfs, so there is normally no need to unlink.
   a 16 B `NO_NOTIFY` publish costs about 1.7 µs, of which about 1.35 µs is
   the clock. `peek` costs about 0.4 µs, and `read` about 0.46 µs plus the
   copy (about 0.9 GB/s, so 72 µs for 64 KiB).
-- **Waking vs polling on the AM335x.** `wait` wakes in about 150 µs
-  (median, p99 about 160 µs). Peeking every 100 µs on a `NO_NOTIFY` channel
-  has a lower median (about 95 µs) but a p99 of about 525 µs, and burns
-  CPU.
+- **Wake-up latency on the AM335x depends on cpuidle.** The BeagleBoard.org
+  image enables the `mpu_gate` idle state (130 µs exit latency). Measured
+  with `psmsgr-bench` (16 B at 500 Hz), `wait` takes about 150 µs from
+  publish to read (median; p99 about 160 µs), and peeking every 100 µs on a
+  `NO_NOTIFY` channel has a p99 of about 525 µs. With `mpu_gate` disabled
+  (`echo 1 > /sys/devices/system/cpu/cpu0/cpuidle/state1/disable`, as root,
+  at every boot), `wait` drops to about 52 µs (p99 about 115 µs), and the
+  polling p99 to about 180 µs. Latency-sensitive systems should disable it,
+  at some cost in idle power.
 - A reader keeps the last published value after the writer dies. Use
   `timestamp_ns` age and/or `writer_alive` to detect this.

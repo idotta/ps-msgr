@@ -46,6 +46,11 @@ On the BeagleBone Black, `clock_gettime` is a syscall (about 1.3 µs), so the
 `timer overhead` row is larger than a `peek` and dominates the short rows.
 The `--batch 100` run gives the per-operation figures.
 
+The wake-up rows depend on cpuidle more than on anything else: the
+`mpu_gate` idle state (130 µs exit latency, enabled by default) adds about
+95 µs to the `wait` median. Record whether it was enabled
+(`/sys/devices/system/cpu/cpu0/cpuidle/state1/disable`) with the results.
+
 A full run takes a minute or two with the defaults. Channels go into a private
 directory under `/dev/shm` (or `--dir`), which is removed at exit.
 `psmsgr-bench --help` lists the options.
@@ -80,7 +85,10 @@ was used.
 
 Also commit the CSVs and the torture output to
 `bench/results/<date>-bbb-<commit>/` (`bench-fifo.csv` is the `chrt` run),
-so the next run has a baseline to compare against. The torture output comes
+so the next run has a baseline to compare against. In the 2026-09-24
+baseline, the `read, writer active` and `poll wake-up, 100 us` rows have an
+unquoted comma in the test name, so they have one field more than the
+header. The torture output comes
 from the `test_torture` binary, run directly (6 minutes at 60 s, over
 CTest's timeout) with its channels on tmpfs:
 
