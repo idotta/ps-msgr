@@ -1,0 +1,7 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<Project>
+  <!-- The library has no dependencies; these are for the tests only. -->
+  <ItemGroup>
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
+  </ItemGroup>
+</Project>

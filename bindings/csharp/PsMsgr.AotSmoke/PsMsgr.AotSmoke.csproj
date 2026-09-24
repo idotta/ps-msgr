@@ -1,0 +1,22 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Native AOT proof (spec/build-and-test.md, CI matrix): publishes with zero trim/AOT
+       warnings, which TreatWarningsAsErrors turns into errors, and exercises every public
+       API. TrimmerSingleWarn=false reports library code warning by warning instead of one
+       summary warning per assembly. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../PsMsgr/PsMsgr.csproj" />
+  </ItemGroup>
+
+</Project>
