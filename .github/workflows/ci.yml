@@ -43,13 +43,12 @@ jobs:
         run: sudo sysctl vm.mmap_rnd_bits=28
 
       - name: Configure, build, test (and package)
-        working-directory: c
-        run: ../docker/run.sh cmake --workflow --preset ${{ matrix.preset }}
+        run: docker/run.sh cmake --workflow --preset ${{ matrix.preset }}
 
       - name: Upload packages
         if: endsWith(matrix.preset, 'release')
         uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.preset }}
-          path: c/build/${{ matrix.preset }}/*.deb
+          path: build/${{ matrix.preset }}/*.deb
           if-no-files-found: error

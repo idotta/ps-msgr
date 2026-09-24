@@ -18,9 +18,10 @@ Status: **specification draft**, not implemented yet. See [`spec/`](spec/README.
 | Directory | Contents |
 |---|---|
 | `spec/` | Channel format, protocol, APIs, build and test requirements |
-| `c/` | `libpsmsgr`, `psmsgr-dump`, C tests |
-| `python/` | `ps_msgr` (ctypes binding) |
-| `csharp/` | `PsMsgr` (P/Invoke binding) |
+| `include/`, `src/`, `tests/`, `cmake/` | `libpsmsgr`: headers, implementation, C tests, build support |
+| `bindings/python/` | `ps_msgr` (ctypes binding) |
+| `bindings/csharp/` | `PsMsgr` (P/Invoke binding) |
+| `docker/` | Build container and `run.sh` |
 
 ## Building
 
@@ -29,10 +30,9 @@ the same one CI uses. `docker/run.sh` builds the image on first use and runs
 a command in it with the repository mounted:
 
 ```sh
-cd c
-../docker/run.sh cmake --workflow --preset dev            # host: debug, ASan+UBSan, tests
-../docker/run.sh cmake --workflow --preset armhf          # BeagleBone Black: tests under qemu
-../docker/run.sh cmake --workflow --preset armhf-release  # + libpsmsgr1/-dev .deb packages
+docker/run.sh cmake --workflow --preset dev            # host: debug, ASan+UBSan, tests
+docker/run.sh cmake --workflow --preset armhf          # BeagleBone Black: tests under qemu
+docker/run.sh cmake --workflow --preset armhf-release  # + libpsmsgr1/-dev .deb packages
 ```
 
 Presets: `dev`, `dev-clang`, `tsan`, `release`, `armhf` and `armhf-release`.

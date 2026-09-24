@@ -4,28 +4,31 @@ Status: **draft**.
 
 ## Repository layout
 
+The C library is the product and lives at the root; the bindings are thin
+wrappers under `bindings/`.
+
 ```
 README.md
+CMakeLists.txt                libpsmsgr
+CMakePresets.json
+cmake/                        toolchain file, package config, ABI check
+include/psmsgr/psmsgr.h
+include/psmsgr/state.h
+src/                          implementation (state.c, futex/lock helpers, …)
+tools/psmsgr-dump.c
+tests/                        C unit + torture tests (CTest)
+bench/                        latency/throughput benchmarks
 spec/                         this directory: the contract
-c/
-  CMakeLists.txt
-  CMakePresets.json
-  cmake/arm-linux-gnueabihf.cmake   cross toolchain file (BeagleBone Black)
-  include/psmsgr/psmsgr.h
-  include/psmsgr/state.h
-  src/                        implementation (state.c, futex/lock helpers, …)
-  tools/psmsgr-dump.c
-  tests/                      unit + torture tests (CTest)
-  bench/                      latency/throughput benchmarks
-python/
-  pyproject.toml
-  src/ps_msgr/                ctypes binding (src layout: tests run against the installed package)
-  tests/                      pytest
-csharp/
-  PsMsgr.sln
-  PsMsgr/PsMsgr.csproj
-  PsMsgr.Tests/PsMsgr.Tests.csproj
-  PsMsgr.AotSmoke/            Native AOT smoke test (CI only)
+bindings/
+  python/
+    pyproject.toml
+    src/ps_msgr/              ctypes binding (src layout: tests run against the installed package)
+    tests/                    pytest
+  csharp/
+    PsMsgr.sln
+    PsMsgr/PsMsgr.csproj
+    PsMsgr.Tests/PsMsgr.Tests.csproj
+    PsMsgr.AotSmoke/          Native AOT smoke test (CI only)
 interop/                      cross-language tests (C ⇄ Python ⇄ C#)
 examples/                     one small writer/reader pair per language
 docker/build.Dockerfile       the build container: CI and local builds
@@ -68,7 +71,7 @@ the same image.
 
 ### CMake presets
 
-`c/CMakePresets.json` (Ninja generator; builds go to `build/<preset>`):
+`CMakePresets.json` (Ninja generator; builds go to `build/<preset>`):
 
 | Preset | Target | Purpose |
 |---|---|---|
@@ -136,7 +139,7 @@ pytest and need the built C library (`PSMSGR_LIBRARY=<build>/libpsmsgr.so.1`).
 SDK-style projects. The library targets `netstandard2.1`. The test project
 must target a concrete runtime: the current .NET LTS, with xUnit. On CI, point
 `PSMSGR_LIBRARY` at the built library, which also exercises the `dlopen`
-preload path. `csharp/PsMsgr.AotSmoke/` is a console app used only by the
+preload path. `bindings/csharp/PsMsgr.AotSmoke/` is a console app used only by the
 Native AOT CI job.
 
 ## Tests
