@@ -61,8 +61,9 @@ Three independent version numbers:
    header). A minor bump MAY only add fields in reserved space, and those
    fields MUST read as zero on older files. Anything else is a major bump.
    Readers MUST reject a different major version.
-2. **Library version** (SemVer). The SONAME major changes only on
-   C ABI breaks.
+2. **Library version** (SemVer). The library major version equals the
+   SONAME number (`libpsmsgr.so.1`) and changes only on C ABI breaks. The
+   first release is 1.0.0; until then nothing is stable.
 3. **Binding package versions** (SemVer). Each binding declares the
    minimum library version it needs and checks it at load time.
 

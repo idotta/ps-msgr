@@ -31,8 +31,18 @@ Both files live in a directory `dir`:
 - the environment variable `PSMSGR_DIR`, if set and non-empty; otherwise
 - `/dev/shm`.
 
-`dir` MUST be on tmpfs for the performance properties to hold. The library
-does not check this.
+- `dir` MUST be on tmpfs for the performance properties to hold. The library
+  does not check this.
+- The library never creates `dir`. A missing `dir` is `PSMSGR_E_SYS`
+  (`ENOENT`) for a writer; a reader simply stays unattached. Creating the
+  directory is a deployment job: systemd `RuntimeDirectory=` or
+  `tmpfiles.d`.
+- `PSMSGR_DIR` is read once, when a handle is opened.
+- Every `open` uses `O_NOFOLLOW`, and a symlink in place of a channel file is
+  an error.
+- All writers of a channel MUST run as the same user. `/dev/shm` is
+  sticky: only a file's owner can rename over it or unlink it. In addition,
+  `fs.protected_regular` makes `O_CREAT` fail on another user's file there.
 
 | File | Purpose |
 |---|---|
@@ -82,8 +92,15 @@ MUST refuse to build on big-endian targets.
 | 56 | u64 | `created_realtime_ns` | const | `CLOCK_REALTIME` when the file was created. Diagnostic only. |
 | 64 | — | reserved | — | 64 bytes, all 0 |
 
-*const* fields are written before the file becomes visible (section 5.1) and
+*const* fields are written before the file becomes visible (section 5.2) and
 never change afterwards, so readers validate them once when they attach.
+
+Rules within format major version 1:
+
+- `header_size` is 128 and `slot_header_size` is 32. Both are fixed.
+- A new minor version may only give meaning to reserved bytes or reserved
+  flag bits, and every such addition MUST be safe for older readers to
+  ignore.
 
 ### 3.2 Slot (at `header_size + i * slot_stride`)
 
@@ -123,6 +140,13 @@ open.
   locked.
 - If the lock is already held, opening a writer fails with
   `PSMSGR_E_WRITER_EXISTS`.
+- **Identity check.** After acquiring the lock, the writer MUST verify that
+  the path still names the inode it locked (`fstat(fd)` against
+  `stat(path)`, comparing `st_dev` and `st_ino`). If they differ, it closes
+  the descriptor and starts over. Without this check, `unlink` (section 7)
+  could leave two writers: B opens the old lock file, A unlinks it and
+  releases, B then locks the orphaned inode while C creates and locks a new
+  one.
 - **Writer liveness** from a reader: `F_OFD_GETLK` with `F_WRLCK` on a
   read-only descriptor of the lock file. It reports a conflicting lock
   without acquiring one, so checking liveness can never make a starting
@@ -141,14 +165,20 @@ open.
    guarantees none of them is in use.
 4. Open the data file `O_RDWR|O_CLOEXEC`.
    - **Missing** → *create* (5.2).
-   - **Present** → map it and validate. It is *compatible* if the magic
-     matches, the major version is equal, and `capacity`, `slot_count`,
-     `payload_type` and `config_flags` equal the requested values, and
-     `st_size >= file_size`.
-     - Compatible → *reuse* (5.3).
-     - Incompatible and `RECREATE` requested → *create* (5.2), which retires
-       the old file.
-     - Incompatible otherwise → fail with `PSMSGR_E_MISMATCH`.
+   - **Present** → map it and validate it, then take the first case that
+     applies:
+     - **Invalid** (it fails the reader validation in 6.1, e.g. bad magic,
+       an unknown major version, or out-of-range fields) → *create* (5.2)
+       if `RECREATE` is requested, else fail with `PSMSGR_E_FORMAT`.
+     - **Different format version** (same major, different minor) →
+       *create* (5.2), automatically. Attached readers follow through the
+       retire, so upgrading the library needs no flag and no reboot.
+     - **Different geometry**: `capacity`, `slot_count`, `payload_type` or
+       `config_flags` differ from the request → *create* (5.2) if
+       `RECREATE` is requested, else fail with `PSMSGR_E_MISMATCH`. A
+       different geometry is an application decision, so it is never
+       replaced silently.
+     - Otherwise, **compatible** → *reuse* (5.3).
 5. Set `writer_pid`.
 
 ### 5.2 Create
@@ -163,9 +193,9 @@ open.
    `state = 0`, all slots zeroed), then `rename(2)` it over
    `psmsgr.<name>.state`. Readers therefore only ever open fully
    initialized files.
-4. If an old data file was replaced: set `RETIRED` in the old header's
-   `state` (release), increment its `notify`, `FUTEX_WAKE` all waiters on it,
-   then unmap it.
+4. If an old data file was replaced and it has at least 128 bytes and a
+   valid magic: set `RETIRED` in the old header's `state` (release),
+   increment its `notify`, `FUTEX_WAKE` all waiters on it, then unmap it.
 5. If the old file was readable and compatible in magic and major version,
    carry its generation over (5.3). Otherwise start at 1.
 
@@ -227,8 +257,8 @@ W.gen = (W.gen == UINT32_MAX) ? 1 : W.gen + 1;             // 0 is never a valid
 
 ### 5.5 Close
 
-The writer releases the lock and unmaps the file. It does **not** delete the
-data file: readers keep the last value (and can see from `peek` and
+An open `begin` is aborted first. The writer then releases the lock and
+unmaps the file. It does **not** delete the data file: readers keep the last value (and can see from `peek` and
 `writer_alive` that it is aging), and the next writer reuses the file.
 
 ## 6. Reader protocol
@@ -244,18 +274,46 @@ To attach:
 
 1. `open(O_RDONLY|O_CLOEXEC)`, then `fstat`. If the file is missing, return
    `PSMSGR_E_NODATA` and stay unattached.
-2. Check `st_size >= header_size`, map the header, validate magic, major
-   version and header/slot sizes, and check `st_size >= file_size`. Anything
-   wrong → `PSMSGR_E_FORMAT`, and stay unattached.
+2. Check `st_size >= 128`, then map the header and validate it. The checks
+   are:
+   - `magic`
+   - `version_major == 1` (any minor)
+   - `header_size == 128` and `slot_header_size == 32`
+   - `2 <= slot_count <= 16`
+   - `capacity <= 16 MiB`
+   - `slot_stride == align_up(32 + capacity, 64)`
+   - `file_size`, computed in 64-bit arithmetic, `<= st_size`
+
+   Anything wrong → `PSMSGR_E_FORMAT`, and stay unattached. A reader never
+   trusts a header field it hasn't range-checked.
 3. `mmap(file_size, PROT_READ, MAP_SHARED | MAP_POPULATE)`. `MAP_POPULATE`
    pre-faults the pages, so the first read isn't slowed by page faults.
-4. Cache the const header fields.
+   Then remember `st_dev` and `st_ino`, and **close the descriptor**: an
+   attached reader holds no file descriptors.
+4. Cache the const header fields. The first `read` / `peek` result from a
+   newly attached file carries `PSMSGR_INFO_ATTACHED` in `info.flags`, which
+   tells the caller to re-check `describe()` (capacity, `payload_type`).
 
 ### 6.2 Retire check
 
 Before every `read` / `peek`: if `atomic_load(&hdr->state, acquire) &
-RETIRED`, unmap, close, and attach again. This costs one load while
-attached, and needs no syscalls until a retire actually happens.
+RETIRED`, unmap and attach again. This costs one load while attached, and
+needs no syscalls until a retire actually happens.
+
+**Orphaned files.** `RETIRED` covers replacements made by the library. It
+does not cover a data file deleted behind the library's back, e.g. by `rm`
+or by systemd `RemoveIPC`. In that case the reader keeps a mapping of a
+dead file while a new writer creates a new one, and nothing in shared
+memory tells the reader. So readers also do an **identity check**: `stat`
+the path, compare `st_dev`/`st_ino` with the mapped file, and reattach if
+they differ (or go unattached if the path is gone). The check costs a
+syscall and runs only:
+
+- in every `writer_alive` call, which is what a poller calls anyway when it
+  sees data aging; and
+- in `wait`, at least once per second of waiting (6.6).
+
+`read` and `peek` never do it.
 
 ### 6.3 Read
 
@@ -275,7 +333,7 @@ for (int attempt = 0; attempt < READ_RETRIES; ++attempt) {   // READ_RETRIES = 6
         atomic_thread_fence(memory_order_acquire);
         if (atomic_load_explicit(&s->seq, relaxed) == q1) {
             if (len > capacity) return PSMSGR_E_FORMAT;
-            *info = (info){gen, len, ts};
+            *info = (info){gen, len, ts, attached_flag()};   // PSMSGR_INFO_ATTACHED once per attach
             return fits ? PSMSGR_OK : PSMSGR_E_TOOSMALL;     // info->length valid either way
         }
     }
@@ -317,7 +375,8 @@ shared mapping don't reliably update it, and reading it would take a
 ### 6.6 Wait
 
 `wait(last_gen, timeout)` blocks until the latest generation differs from
-`last_gen`, the channel is retired, or the timeout expires:
+`last_gen` or the timeout expires. A retire or an orphaned file is handled
+inside the loop by reattaching; it is not a return condition:
 
 ```c
 for (;;) {
@@ -325,8 +384,9 @@ for (;;) {
     if (retired) { reattach; continue; }
     if (peek().generation != last_gen) return PSMSGR_OK;       // NODATA counts as "unchanged"
     if (remaining <= 0) return PSMSGR_E_TIMEOUT;
-    r = futex(&hdr->notify, FUTEX_WAIT, n, remaining);         // shared futex
+    r = futex(&hdr->notify, FUTEX_WAIT, n, min(remaining, 1 s)); // shared futex
     if (r == -1 && errno == EINTR) return PSMSGR_E_INTR;
+    if (r == -1 && errno == ETIMEDOUT) identity_check();         // orphan detection, 6.2
 }
 ```
 
@@ -346,8 +406,9 @@ for (;;) {
 
 ## 7. Unlink
 
-`unlink(name)` requires the writer lock (so it fails with
-`PSMSGR_E_WRITER_EXISTS` while a writer is active). It then:
+`unlink(name)` requires the writer lock, including the identity check from
+section 4, so it fails with `PSMSGR_E_WRITER_EXISTS` while a writer is
+active. It then:
 
 1. sets `RETIRED` in the header of the current data file,
 2. increments its `notify` and wakes waiters,
@@ -369,5 +430,19 @@ Reboots clear tmpfs, so there is normally no need to unlink.
   `RuntimeDirectoryPreserve=yes`.
 - Access control is ordinary file permissions. Use `mode` (default `0644`)
   plus a shared group, for example `0640`.
+- **`/dev/shm` is world-writable.** Any local user can create
+  `psmsgr.<name>.*` first: that blocks the real writer, and it can also feed
+  forged data to readers. On a multi-user system, point `PSMSGR_DIR` at a
+  dedicated directory that only the application group can write to, e.g.
+  `/run/psmsgr` with mode `2770` created via `RuntimeDirectory=`. On a
+  single-purpose BeagleBone, `/dev/shm` is fine.
+- Another process can still `ftruncate` a channel file it has write access
+  to, and readers then get `SIGBUS`. File permissions are the only
+  protection; the library does not guard against this.
+- **Timestamps on the AM335x.** The Cortex-A8 has no ARM generic timer, so
+  `clock_gettime(CLOCK_MONOTONIC)` probably can't use the vDSO and becomes a
+  real syscall. Publishing and `psmsgr_now_ns()` therefore likely cost one
+  syscall on the BeagleBone Black; `peek` and `read` don't. `bench/` must
+  measure this on the target.
 - A reader keeps the last published value after the writer dies. Use
   `timestamp_ns` age and/or `writer_alive` to detect this.

@@ -14,13 +14,16 @@ The rules that apply to both:
   environment variable `PSMSGR_LIBRARY`.
 - At load time, check `psmsgr_version()`: same major version, and at least
   the minimum minor version the binding needs. Fail loudly otherwise.
-- A reader owns one receive buffer of `capacity` bytes, allocated on first
-  attach and reallocated if the channel is recreated with a different
-  capacity. Reads never allocate except for the returned copy
-  (Python `bytes`, C# convenience overloads).
+- A reader owns one receive buffer of `capacity` bytes. When a result
+  carries `PSMSGR_INFO_ATTACHED`, the binding calls `describe()` and
+  reallocates the buffer if the capacity changed. Reads never allocate
+  except for the returned copy (Python `bytes`, C# convenience overloads).
+- `PSMSGR_INFO_ATTACHED` is exposed as `StateInfo.attached` / `Attached`, so
+  applications can re-check `payload_type`.
 - `PSMSGR_E_NODATA` is not an error: it maps to `None` / `false`. Every other
   negative code maps to an exception that carries the code and, for
-  `PSMSGR_E_SYS`, the `errno`.
+  `PSMSGR_E_SYS`, the `errno`. `PSMSGR_E_BUSY` gets its own exception type
+  (`ChannelBusyError` / `PsMsgrError.Busy`), documented as transient.
 - `wait` handles `PSMSGR_E_INTR` itself. It checks for cancellation
   (Python signals, C# `CancellationToken`) and then retries with the
   remaining timeout.
@@ -33,7 +36,9 @@ The rules that apply to both:
 ## Python — `ps_msgr`
 
 - Python ≥ 3.9 (Debian 11 on older BeagleBone images). No runtime
-  dependencies. `ctypes`, so it is a pure-Python wheel.
+  dependencies. `ctypes`, so it is a pure-Python wheel. Modules use
+  `from __future__ import annotations`, because the `X | Y` annotations
+  below don't evaluate at runtime on 3.9.
 - `ctypes` releases the GIL during foreign calls, so a blocking `wait`
   doesn't stall other threads.
 - When `wait` gets `PSMSGR_E_INTR`, the binding returns to the interpreter
@@ -65,7 +70,7 @@ class StateReader:                        # context manager
     def close(self) -> None: ...
 
 @dataclass(frozen=True)
-class StateInfo:  generation: int; length: int; timestamp_ns: int
+class StateInfo:  generation: int; length: int; timestamp_ns: int; attached: bool
     # .age_ns property: now_ns() - timestamp_ns
 
 @dataclass(frozen=True)
@@ -82,6 +87,7 @@ class WriterExistsError(PsMsgrError): ...
 class ChannelMismatchError(PsMsgrError): ...
 class ChannelFormatError(PsMsgrError): ...
 class PayloadTooLargeError(PsMsgrError, ValueError): ...
+class ChannelBusyError(PsMsgrError): ...      # transient: retry
 ```
 
 `read_into` raises `PayloadTooLargeError` if `buf` is too small. Payload
@@ -190,7 +196,7 @@ public sealed class StateReader : IDisposable
     public void Dispose();
 }
 
-public readonly record struct StateInfo(uint Generation, uint Length, ulong TimestampNs)
+public readonly record struct StateInfo(uint Generation, uint Length, ulong TimestampNs, bool Attached)
 {
     public TimeSpan Age => /* from Clock.NowNs() - TimestampNs */;
 }
@@ -217,8 +223,8 @@ The library never looks at the payload. Some suggestions for applications:
 - For hot, fixed-size state, use plain structs with fixed-width
   little-endian fields and explicit padding, defined once in a C header and
   mirrored in `ctypes.Structure` / `[StructLayout]`.
-- Put a schema identifier in `payload_type`, e.g. a FourCC in the upper
-  16 bits and a schema version in the lower 16. Readers check it with
+- Put a schema identifier in `payload_type`, e.g. a 16-bit schema ID in the
+  upper half and a 16-bit schema version in the lower half. Readers check it with
   `describe()` before trusting the bytes.
 - Variable or evolving data can use a self-describing encoding (MessagePack,
   CBOR, protobuf, FlatBuffers), with the size cost counted against

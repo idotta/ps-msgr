@@ -98,6 +98,18 @@ Every test uses its own temporary directory as the channel `dir`, never
   on retire and on unlink, returns `NOTSUP` on `NO_NOTIFY` channels, and
   returns `INTR` when a signal arrives without `SA_RESTART`.
 - `writer_alive` before open, during, after close, and after `SIGKILL`.
+- Lock identity: `unlink` racing a second writer's open never produces two
+  writers (fault-injection hook between `open` and `F_OFD_SETLK`).
+- Orphans: `rm` the data file under an attached reader, then start a new
+  writer. `writer_alive` and `wait` reattach the reader; `read`/`peek` alone
+  keep the old value.
+- Format minor mismatch → automatic recreate; `RECREATE` over an invalid
+  file; `FORMAT` without it.
+- `PSMSGR_INFO_ATTACHED` appears exactly once per attach.
+- Symlinked channel or lock files are rejected (`O_NOFOLLOW`), and a missing
+  `dir` gives `ENOENT`.
+- Reader validation: fuzz the header (random bytes, extreme field values).
+  Attach must fail with `FORMAT` and never crash.
 - `ENOSPC` from `posix_fallocate` on a size-limited tmpfs, where the
   environment allows mounting one.
 
@@ -124,6 +136,15 @@ recreates the channel under Python and C# readers.
 - ASan+UBSan on the unit and torture tests.
 - TSan with the payload copy annotated (see state-channel.md §5.4). Any
   other report is a bug.
+
+## Conventions
+
+- Every source file starts with `SPDX-License-Identifier: Apache-2.0`.
+- Formatting and linting are enforced in CI: `.clang-format` for C, `ruff`
+  for Python, `.editorconfig` plus `dotnet format` for C#.
+- User-visible changes go into `CHANGELOG.md` (Keep a Changelog format).
+- C header layouts are pinned with `_Static_assert(offsetof(...))`, matching
+  the offset tables in state-channel.md.
 
 ## CI matrix
 

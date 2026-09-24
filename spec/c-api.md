@@ -14,9 +14,14 @@ Status: **draft**. Protocol semantics are defined in
   handles to the same channel.
 - Handles are not valid in a `fork()`ed child. All descriptors are
   `O_CLOEXEC`.
-- Nothing allocates, locks or makes a syscall on the hot path (`publish`,
-  `begin`/`commit`, `read`, `peek`), except the notify wake in `publish`.
-  All allocation happens in `*_open`.
+- Nothing allocates or takes a lock on the hot path (`publish`,
+  `begin`/`commit`, `read`, `peek`). All allocation happens in `*_open`.
+- `read` and `peek` make no syscalls while attached. `publish`/`commit`
+  make at most two: the notify wake, and `clock_gettime` where the vDSO
+  can't serve it (likely on the AM335x, see state-channel.md §8).
+- The library never writes to stdout/stderr, never installs signal handlers,
+  never calls `exit`/`abort`, and keeps no global mutable state apart from
+  handles.
 - Only symbols prefixed `psmsgr_` are exported (`-fvisibility=hidden` plus
   an export macro).
 - ABI extensibility: structs passed *in* start with `struct_size`, set by
@@ -25,8 +30,10 @@ Status: **draft**. Protocol semantics are defined in
 ## `<psmsgr/psmsgr.h>`
 
 ```c
-#define PSMSGR_VERSION_MAJOR 0
-#define PSMSGR_VERSION_MINOR 1
+/* Library major == SONAME number. The first release is 1.0.0; until then the
+ * API/ABI may change freely. */
+#define PSMSGR_VERSION_MAJOR 1
+#define PSMSGR_VERSION_MINOR 0
 #define PSMSGR_VERSION_PATCH 0
 
 /* (major << 16) | (minor << 8) | patch of the loaded library. */
@@ -45,7 +52,7 @@ enum {
     PSMSGR_E_NODATA        =  -3,  /* channel absent or nothing published yet */
     PSMSGR_E_TOOSMALL      =  -4,  /* buffer too small; info->length is valid */
     PSMSGR_E_TOOBIG        =  -5,  /* payload larger than capacity            */
-    PSMSGR_E_BUSY          =  -6,  /* read retries exhausted                  */
+    PSMSGR_E_BUSY          =  -6,  /* read retries exhausted; transient, retry */
     PSMSGR_E_TIMEOUT       =  -7,
     PSMSGR_E_INTR          =  -8,  /* wait interrupted by a signal            */
     PSMSGR_E_WRITER_EXISTS =  -9,  /* another writer holds the channel        */
@@ -83,11 +90,17 @@ typedef struct psmsgr_state_options {
     const char *dir;           /* NULL: $PSMSGR_DIR, else /dev/shm */
 } psmsgr_state_options;
 
+enum {
+    PSMSGR_INFO_ATTACHED = 1u << 0,  /* first result from a newly (re)attached file */
+};
+
 /* Result of read/peek. */
 typedef struct psmsgr_state_info {
     uint32_t generation;    /* change token, never 0 */
     uint32_t length;        /* payload length */
     uint64_t timestamp_ns;  /* CLOCK_MONOTONIC at publish */
+    uint32_t flags;         /* PSMSGR_INFO_* */
+    uint32_t reserved;      /* 0 */
 } psmsgr_state_info;
 
 /* Constant properties of an attached channel. */
@@ -105,12 +118,14 @@ typedef struct psmsgr_state_desc {
 void psmsgr_state_options_init(psmsgr_state_options *opt);
 
 /* Opens or creates the channel and takes the writer lock (state-channel.md §5.1).
- * Errors: INVAL, WRITER_EXISTS, MISMATCH, FORMAT, SYS (incl. ENOSPC). */
+ * Errors: INVAL, WRITER_EXISTS, MISMATCH, FORMAT,
+ *         SYS (e.g. ENOENT: dir missing, ENOSPC: tmpfs full, EACCES, ELOOP: symlink). */
 int  psmsgr_state_writer_open(const char *name,
                               const psmsgr_state_options *opt,
                               psmsgr_state_writer **out);
 
-/* Releases the lock; the channel and its last value remain. NULL is a no-op. */
+/* Aborts an open begin, releases the lock; the channel and its last value
+ * remain. NULL is a no-op. */
 void psmsgr_state_writer_close(psmsgr_state_writer *w);
 
 /* Copies and publishes a value. generation may be NULL.
@@ -151,7 +166,9 @@ int  psmsgr_state_peek(psmsgr_state_reader *r, psmsgr_state_info *info);
 int  psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generation,
                        int32_t timeout_ms);
 
-/* 1 if a writer currently holds the channel, 0 if not, <0 on error. Syscall. */
+/* 1 if a writer currently holds the channel, 0 if not, <0 on error.
+ * Syscalls; also runs the orphan identity check (state-channel.md §6.2) and
+ * reattaches if the file was replaced behind the library's back. */
 int  psmsgr_state_writer_alive(psmsgr_state_reader *r);
 
 /* Constant channel properties. OK | NODATA (not attached) | FORMAT. */
