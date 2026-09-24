@@ -17,7 +17,8 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "PSMSGR_SANITIZE": "address,undefined"
+        "PSMSGR_SANITIZE": "address,undefined",
+        "PSMSGR_BUILD_BENCH": "ON"
       }
     },
     {
@@ -62,6 +63,7 @@
       "inherits": "armhf",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "PSMSGR_BUILD_BENCH": "ON",
         "CMAKE_INSTALL_PREFIX": "/usr",
         "CMAKE_INSTALL_LIBDIR": "lib/arm-linux-gnueabihf"
       }

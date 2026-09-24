@@ -17,7 +17,7 @@ include/psmsgr/state.h
 src/                          implementation (state.c, futex/lock helpers, …)
 tools/psmsgr-dump.c
 tests/                        C unit + torture tests (CTest)
-bench/                        latency/throughput benchmarks
+bench/                        psmsgr-bench: on-target latency benchmark
 spec/                         this directory: the contract
 bindings/
   python/
@@ -84,7 +84,7 @@ the same image.
 | `tsan` | host | Debug build with ThreadSanitizer. |
 | `release` | host | `RelWithDebInfo`; used by the binding tests and interop. Also builds the host `.deb`. |
 | `armhf` | armhf | Debug build; tests run under qemu. |
-| `armhf-release` | armhf | Release build plus CPack `.deb` for the board. |
+| `armhf-release` | armhf | Release build plus CPack `.deb` for the board, including `psmsgr-bench`. |
 
 Each preset also has a workflow preset (configure → build → test, plus
 package for the release presets), so one command reproduces a CI job:
@@ -125,7 +125,7 @@ the library get correct package dependencies.
   |---|---|---|
   | `PSMSGR_BUILD_TESTS` | `ON` | Build the unit and torture tests. |
   | `PSMSGR_BUILD_TOOLS` | `ON` | Build `psmsgr-dump`. |
-  | `PSMSGR_BUILD_BENCH` | `OFF` | Build the benchmarks. |
+  | `PSMSGR_BUILD_BENCH` | `OFF` | Build `psmsgr-bench`, installed with the tools. `dev`, `dev-clang` and `armhf-release` turn it on. |
   | `PSMSGR_SANITIZE` | empty | Sanitizer to enable: `address`, `undefined` or `thread`. |
 
 - Packaging: CPack DEB for `armhf` and `amd64`, built in the trixie
@@ -278,7 +278,16 @@ recreates the channel under Python and C# readers.
 
 ## On-target validation (before each release)
 
-Run the torture test and `bench/` on a real BeagleBone Black. Record in the
-release notes the publish, read and peek latency for 16 B, 256 B, 4 KiB and
-64 KiB payloads, and the wake-up latency of `wait`. There are no numeric
-targets until the first measurement.
+Run the torture test and `psmsgr-bench` on a real BeagleBone Black, with the
+`performance` CPU frequency governor. `bench/README.md` describes the run.
+Record in the release notes, under "On-target measurements", the
+benchmark's CSV output with its header lines. It covers the publish, read
+and peek latency for 16 B, 256 B, 4 KiB and 64 KiB payloads, uncontended
+and against a writer in another process (with the `BUSY` count), the
+wake-up latency of `wait` and of polling a `NO_NOTIFY` channel, and the
+cost of `clock_gettime`, both through libc and as a raw syscall. Note
+whether it ran under `chrt`. There are no numeric targets until the first
+measurement.
+
+CI builds `psmsgr-bench` (in `dev`, `dev-clang` and `armhf-release`) but
+never runs it: numbers from x86 or qemu mean nothing.
