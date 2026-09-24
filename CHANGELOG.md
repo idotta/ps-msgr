@@ -15,3 +15,5 @@ as described in [`spec/README.md`](spec/README.md).
 - `psmsgr-dump`: inspect a channel.
 - `psmsgr-bench`: on-target latency benchmark.
 - Debian packages for amd64 and armhf, a CMake package config and `psmsgr.pc`.
+- `ps_msgr`: the Python binding (`ctypes`, Python ≥ 3.11, no dependencies),
+  in `bindings/python/`.

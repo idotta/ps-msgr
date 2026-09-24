@@ -17,12 +17,13 @@ include/psmsgr/psmsgr.h
 include/psmsgr/state.h
 src/                          implementation (state.c, futex/lock helpers, …)
 tools/psmsgr-dump.c
-tests/                        C unit + torture tests (CTest)
+tests/                        C unit + torture tests (CTest), interop_helper for the bindings
 bench/                        psmsgr-bench: on-target latency benchmark
 spec/                         this directory: the contract
 bindings/
   python/
     pyproject.toml
+    check.sh                  wheel, pytest against the installed wheel, ruff
     src/ps_msgr/              ctypes binding (src layout: tests run against the installed package)
     tests/                    pytest
   csharp/
@@ -55,8 +56,12 @@ the same image.
     need no cmocka at run time, on the board either.
   - `clang` (second compiler, sanitizers) and `clang-format` (the formatting
     reference)
-  - `python3`, the .NET SDK, and `mono-runtime` if trixie still ships it.
-    Otherwise the Mono smoke test uses the Mono project's packages.
+  - `python3` with pytest, pip, setuptools and venv, and `ruff` (the Python
+    linter and formatter). trixie does not package ruff, so the image
+    installs a pinned release into a venv from its wheels, which BuildKit
+    fetches and checks against their SHA-256.
+  - the .NET SDK, and `mono-runtime` if trixie still ships it. Otherwise
+    the Mono smoke test uses the Mono project's packages.
 - **Two targets:**
   - host (x86-64 or AArch64, for development and CI)
   - `armhf` (BeagleBone Black), cross-compiled with Debian's
@@ -138,8 +143,25 @@ the library get correct package dependencies.
 
 ## Python
 
-`pyproject.toml` with a PEP 517 backend (hatchling or setuptools). Tests use
-pytest and need the built C library (`PSMSGR_LIBRARY=<build>/libpsmsgr.so.1`).
+`pyproject.toml` with the setuptools PEP 517 backend; it also holds the
+pytest and ruff settings. Tests use pytest and need the built C library
+(`PSMSGR_LIBRARY=<build>/libpsmsgr.so.1`). The tests that need the C side
+also take `tests/interop_helper` and `tools/psmsgr-dump` from the same build
+directory; they are skipped only when `PSMSGR_LIBRARY` is unset.
+
+`bindings/python/check.sh [build-dir]` (default `build/release`) is what
+CI runs, in the build container: it builds the wheel, installs it into a
+scratch directory, runs pytest against that, and then `ruff check` and
+`ruff format --check`. Warnings fail the tests, including a
+`ResourceWarning` from a handle a test forgot to close.
+
+`tests/interop_helper.c` is built with the C tests but is not a CTest test.
+`interop_helper layout` prints every size, offset and constant of the
+public headers, which the bindings compare with their mirrors, so that a C
+layout change fails the binding tests instead of corrupting data.
+`interop_helper write DIR NAME CAPACITY FLAGS PAYLOAD...` is a C writer
+that publishes each payload, prints its generation and holds the channel
+until its stdin closes.
 
 ## C#
 
@@ -249,7 +271,10 @@ its own mapping of the file.
 ### Interop
 
 Each binding writes and each other binding reads, including a C writer that
-recreates the channel under Python and C# readers.
+recreates the channel under Python and C# readers. The C side is
+`interop_helper write` as the writer and `psmsgr-dump --hex` as the reader.
+So far `bindings/python/tests/test_interop.py` covers C ⇄ Python; the
+`interop/` directory takes the cross-binding tests once C# exists.
 
 ### Sanitizers
 
@@ -277,9 +302,9 @@ recreates the channel under Python and C# readers.
 |---|---|
 | x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. All jobs run in the build container. |
 | Format | `clang-format --dry-run --Werror` on the C and C++ sources, in the build container. |
-| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. |
+| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. Also runs `bindings/python/check.sh`, the binding tests on weakly ordered memory. |
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, 64-bit `time_t`) plus the `libatomic` check. |
-| Python (x86-64) | Binding tests plus interop. |
+| Python (x86-64) | `release` preset, then `bindings/python/check.sh`: binding tests plus interop against the installed wheel, and ruff. |
 | C# (x86-64) | Binding tests plus interop on .NET LTS; a Mono smoke test of the `netstandard2.1` assembly. |
 | C# Native AOT | `dotnet publish -p:PublishAot=true` of `PsMsgr.AotSmoke` with `TrimmerSingleWarn=false` (per-warning detail for library code) and IL2xxx/IL3xxx as errors. Publish-time analysis only covers code the app reaches, so the smoke app MUST call every public API, including the generic helpers with a sample struct. Builds for linux-x64 and runs it. |
 | CPack | Build the `.deb` for armhf and amd64. |

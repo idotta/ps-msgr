@@ -59,6 +59,10 @@ if(TARGET psmsgr-dump)
         ARGS ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:psmsgr-dump>)
 endif()
 
+# The C side of the binding tests: struct layouts and an interop writer.
+add_executable(interop_helper interop_helper.c)
+target_link_libraries(interop_helper PRIVATE psmsgr psmsgr_flags)
+
 include(CheckLanguage)
 check_language(CXX)
 if(CMAKE_CXX_COMPILER)

@@ -13,9 +13,10 @@ writer to many readers through a shared-memory file in `/dev/shm`:
 - Optional blocking `wait`.
 - Readers can start before the writer.
 
-Status: the C library with state channels, `psmsgr-dump` and `psmsgr-bench` are
-implemented and tested in CI (x86-64, arm64, armhf under qemu); on-target
-validation and the Python and C# bindings are pending. See [`spec/`](spec/README.md).
+Status: the C library with state channels, `psmsgr-dump`, `psmsgr-bench` and
+the Python binding are implemented and tested in CI (x86-64, arm64, armhf
+under qemu); on-target validation and the C# binding are pending. See
+[`spec/`](spec/README.md).
 
 | Directory | Contents |
 |---|---|
@@ -23,7 +24,7 @@ validation and the Python and C# bindings are pending. See [`spec/`](spec/README
 | `include/`, `src/`, `tests/`, `cmake/` | `libpsmsgr`: headers, implementation, C tests, build support |
 | `tools/` | `psmsgr-dump`: inspect a channel |
 | `bench/` | `psmsgr-bench`: latency on the target ([how to run it](bench/README.md)) |
-| `bindings/python/` | `ps_msgr` (ctypes binding, pending) |
+| `bindings/python/` | `ps_msgr`: ctypes binding ([usage](bindings/python/README.md)) |
 | `bindings/csharp/` | `PsMsgr` (P/Invoke binding, pending) |
 | `docker/` | Build container and `run.sh` |
 
@@ -37,6 +38,7 @@ a command in it with the repository mounted:
 docker/run.sh cmake --workflow --preset dev            # host: debug, ASan+UBSan, tests
 docker/run.sh cmake --workflow --preset armhf          # BeagleBone Black: tests under qemu
 docker/run.sh cmake --workflow --preset armhf-release  # + libpsmsgr1, -dev and psmsgr-tools .debs
+docker/run.sh bindings/python/check.sh                 # Python binding, after the release preset
 ```
 
 Presets: `dev`, `dev-clang`, `tsan`, `release`, `armhf` and `armhf-release`.

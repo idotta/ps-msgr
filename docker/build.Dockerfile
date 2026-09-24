@@ -7,6 +7,13 @@
 #   docker build -t psmsgr-build -f docker/build.Dockerfile docker
 #   docker/run.sh cmake --workflow --preset dev
 
+# ruff's x86-64 and arm64 wheels, fetched and checked by BuildKit.
+FROM scratch AS ruff-wheels
+ADD --checksum=sha256:15e7d226246961db9235098333caa13063906d3851136b84c2900b82f5daa1df \
+    https://files.pythonhosted.org/packages/1a/41/d83af9879a7b6e8bf5fe16b1da0b134049d2f5d3afac12defb0897cb84bd/ruff-0.16.8-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl /
+ADD --checksum=sha256:8efeae3bbe414a5efefda11a792dfb51ef90ac48d50c4830de2f644caf3e8659 \
+    https://files.pythonhosted.org/packages/23/f2/311a08776d75d81c7676e20b6b020ae63cbe881fcdc7a8dd64e6e18bdd93/ruff-0.16.8-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl /
+
 FROM debian:trixie
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -30,7 +37,18 @@ RUN dpkg --add-architecture armhf \
         git \
         ca-certificates \
         python3 \
+        python3-pip \
+        python3-pytest \
+        python3-setuptools \
+        python3-venv \
  && rm -rf /var/lib/apt/lists/*
+
+# ruff for the Python binding (trixie does not package it): the pinned
+# wheels from the ruff-wheels stage, installed into a venv without network.
+RUN --mount=type=bind,from=ruff-wheels,target=/wheels \
+    python3 -m venv /opt/ruff \
+ && /opt/ruff/bin/pip install --no-cache-dir --no-index --find-links /wheels ruff==0.16.8 \
+ && ln -s /opt/ruff/bin/ruff /usr/local/bin/ruff
 
 # cmocka 2.0 for the C tests: trixie ships 1.1.7, which predates the current
 # API. Built as a static library for the host (/usr/local) and for armhf (the
