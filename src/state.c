@@ -485,8 +485,10 @@ static int open_data(psmsgr_state_writer *w, const psmsgr_state_options *o, cons
     (void)close(fd);
 
     uint32_t latest = valid ? load_acquire(&old->latest) : PSMI_LATEST_NONE;
-    if (valid && latest != PSMI_LATEST_NONE && latest >= h.slot_count)
+    if (valid && !psmi_latest_valid(latest, h.slot_count))
         valid = false; /* corrupt dynamic state */
+    if (latest != PSMI_LATEST_NONE)
+        latest = psmi_latest_slot(latest);
 
     bool recreate = (o->flags & PSMSGR_STATE_RECREATE) != 0;
     uint32_t gen = valid ? carried_generation(old, h.slot_stride, latest) : 1;
@@ -596,7 +598,7 @@ static uint32_t commit_slot(psmsgr_state_writer *w, uint32_t len)
     s->length       = len;
     s->timestamp_ns = psmi_clock_ns(CLOCK_MONOTONIC);
     __atomic_store_n(&s->seq, w->open_seq + 2, __ATOMIC_RELEASE);
-    __atomic_store_n(&w->hdr->latest, i, __ATOMIC_RELEASE);
+    __atomic_store_n(&w->hdr->latest, psmi_latest(i, w->open_seq + 2), __ATOMIC_RELEASE);
     w->latest    = i;
     w->open_slot = PSMI_LATEST_NONE;
     if (w->notify) {
@@ -793,15 +795,19 @@ static int read_latest(const psmsgr_state_reader *r, void *buf, uint32_t size, b
 {
     const unsigned char *slots = (const unsigned char *)r->hdr + PSMI_HEADER_SIZE;
     for (int attempt = 0; attempt < READ_RETRIES; ++attempt) {
-        uint32_t i = load_acquire(&r->hdr->latest);
-        if (i == PSMI_LATEST_NONE)
+        uint32_t latest = load_acquire(&r->hdr->latest);
+        if (latest == PSMI_LATEST_NONE)
             return PSMSGR_E_NODATA;
-        if (i >= r->slot_count)
+        if (!psmi_latest_valid(latest, r->slot_count))
             return PSMSGR_E_FORMAT;
+        uint32_t i = psmi_latest_slot(latest);
         const psmi_slot *s = (const psmi_slot *)(slots + (size_t)i * r->slot_stride);
 
+        /* Only the version `latest` published: a stale `latest` may name a
+         * slot the writer has since committed again but not yet published,
+         * and reading that would let the next read go back in time. */
         uint32_t q1 = load_acquire(&s->seq);
-        if ((q1 & 1u) == 0) {
+        if ((q1 & 1u) == 0 && psmi_latest(i, q1) == latest) {
             psmi_slot m;
             psmi_seq_copy(&m, s, offsetof(psmi_slot, reserved));
             bool fits = m.length <= size;

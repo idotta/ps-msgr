@@ -85,7 +85,7 @@ MUST refuse to build on big-endian targets.
 | 28 | u32 | `payload_type` | const | Application-defined tag; 0 means unspecified. |
 | 32 | u32 | `config_flags` | const | bit 0 `NO_NOTIFY`: the writer never wakes waiters. Other bits: 0. |
 | 36 | u32 | `state` | atomic | bit 0 `RETIRED`: this file was replaced or unlinked, so readers must reattach. Other bits: 0. |
-| 40 | u32 | `latest` | atomic | Index of the most recently published slot, or `0xFFFFFFFF` if nothing has been published. |
+| 40 | u32 | `latest` | atomic | The most recently published slot, or `0xFFFFFFFF` if nothing has been published. Bits 0–3: slot index. Bits 4–30: that slot's `seq / 2` at the publish, modulo 2²⁷. Bit 31: 0. |
 | 44 | u32 | `notify` | atomic | Futex word, incremented after every publish and on retire. |
 | 48 | u32 | `writer_pid` | plain | PID of the last writer to open the channel. Diagnostic only. |
 | 52 | u32 | reserved | — | 0 |
@@ -173,7 +173,8 @@ open.
      applies:
      - **Invalid** (it fails the reader validation in 6.1, e.g. bad magic,
        an unknown major version, or out-of-range fields, or `latest` is
-       neither `0xFFFFFFFF` nor below `slot_count`) → *create* (5.2) if
+       neither `0xFFFFFFFF` nor has bit 31 clear and a slot index below
+       `slot_count`) → *create* (5.2) if
        `RECREATE` is requested, else fail with `PSMSGR_E_FORMAT`.
      - **Different format version** (same major, different minor) →
        *create* (5.2), automatically. Attached readers follow through the
@@ -213,9 +214,12 @@ open.
   while its `generation` and `length` are still the old ones, so it must
   never become readable again in that state. It is never `latest`, because
   `latest` is only updated after a commit, and it is exactly the slot the
-  next publish writes (`latest + 1`), which then makes it even again.
-- The writer's next generation is `slots[latest].generation + 1`, or 1 if
-  `latest == 0xFFFFFFFF`.
+  next publish writes (the slot after `latest`'s index), which then makes it
+  even again.
+- The writer's next generation is `slots[i].generation + 1` for `latest`'s
+  slot index `i`, or 1 if `latest == 0xFFFFFFFF`. A slot committed by a
+  writer that crashed before it stored `latest` was never readable (6.3), so
+  reusing its generation is harmless.
 
 Readers that are already attached keep working through a writer restart: the
 file and its mapping stay the same.
@@ -240,7 +244,8 @@ memcpy(s->data, data, len);
 s->timestamp_ns = clock_gettime_ns(CLOCK_MONOTONIC);      // commit time
 
 atomic_store_explicit(&s->seq, q + 2, release);             // even: stable
-atomic_store_explicit(&hdr->latest, i, release);
+atomic_store_explicit(&hdr->latest, LATEST(i, q + 2), release);
+// LATEST(i, q) = ((q >> 1) & 0x07FFFFFF) << 4 | i   (§3.1)
 W.latest = i;
 
 if (!(config_flags & NO_NOTIFY)) {
@@ -348,13 +353,14 @@ syscall and runs only:
 
 ```c
 for (int attempt = 0; attempt < READ_RETRIES; ++attempt) {   // READ_RETRIES = 64
-    uint32_t i = atomic_load_explicit(&hdr->latest, acquire);
-    if (i == NONE) return PSMSGR_E_NODATA;
-    if (i >= slot_count) return PSMSGR_E_FORMAT;
+    uint32_t l = atomic_load_explicit(&hdr->latest, acquire);
+    if (l == NONE) return PSMSGR_E_NODATA;
+    if ((l >> 31) || (l & 0xF) >= slot_count) return PSMSGR_E_FORMAT;
+    uint32_t i = l & 0xF;
     slot *s = &slots[i];
 
     uint32_t q1 = atomic_load_explicit(&s->seq, acquire);
-    if (!(q1 & 1)) {
+    if (!(q1 & 1) && LATEST(i, q1) == l) {                  // the version `latest` published
         uint32_t gen = s->generation, len = s->length;
         uint64_t ts  = s->timestamp_ns;
         bool fits    = len <= size;
@@ -373,6 +379,19 @@ return PSMSGR_E_BUSY;
 
 Every attempt re-reads `latest`, so after a retry the reader gets the
 *newest* value, not the one it started with.
+
+**Why `latest` carries the slot's version.** The writer stores `latest`
+after the slot's `seq`, so a slot can be committed without being published
+yet. With an index alone, a reader that loaded `latest = i` and was then
+preempted could find slot `i` committed again (after `slot_count - 1`
+publishes into other slots) and read it before the writer stored
+`latest = i`. Its next read would follow the real `latest` to an *older*
+value, which an equality check on the generation reports as a change. The
+version check rejects that copy; the retry reloads `latest`. A publish into
+another slot during the copy does not cause a retry: the copied value was
+published, and it is newer than anything this reader returned before. The
+27-bit version wraps only after 2²⁷ commits of one slot during a single
+read attempt.
 
 ### 6.4 Peek
 
@@ -399,6 +418,8 @@ shared mapping don't reliably update it, and reading it would take a
   skipping 0).
 - It is monotonic for the lifetime of a data file, and it is carried across
   writer restarts and, when possible, across recreates (5.2).
+- A reader handle never returns an older value than one it returned before,
+  from `read` or `peek`, as long as it stays attached to the same file.
 - 0 is never a valid generation, so callers can use 0 to mean "never seen".
 
 ### 6.6 Wait

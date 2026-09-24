@@ -156,7 +156,7 @@ static void create_then_reuse(void **state)
     assert_uint_equal(gen, 2);
     assert_rc(publish_str(w, "three", NULL), PSMSGR_OK);
     assert_int_equal(raw_header(CHAN, &h), 0);
-    assert_uint_equal(h.latest, 2);
+    assert_uint_equal(h.latest, psmi_latest(2, 2)); /* slot 2, committed once */
     assert_uint_equal(h.notify, 3);
     ino_t ino = inode_of(data_path(CHAN));
     psmsgr_state_writer_close(w);
@@ -167,7 +167,7 @@ static void create_then_reuse(void **state)
     assert_rc(publish_str(w, "four", &gen), PSMSGR_OK);
     assert_uint_equal(gen, 4);
     assert_int_equal(raw_header(CHAN, &h), 0);
-    assert_uint_equal(h.latest, 0); /* rotation continues after the last slot */
+    assert_uint_equal(h.latest, psmi_latest(0, 4)); /* rotation continues after the last slot */
 
     psmsgr_state_reader *r = open_reader(CHAN);
     char buf[32];
@@ -313,7 +313,7 @@ static void crash_mid_publish(void **state)
 
     psmi_header h;
     assert_int_equal(raw_header(CHAN, &h), 0);
-    assert_uint_equal(h.latest, 0);
+    assert_uint_equal(psmi_latest_slot(h.latest), 0);
     uint32_t seq = raw_slot_seq(CHAN, 1);
     assert_true(seq & 1u); /* the interrupted slot */
 
@@ -512,6 +512,31 @@ static void begin_commit_abort(void **state)
     assert_rc(read_str(r, str, sizeof str, &info), PSMSGR_OK);
     assert_string_equal(str, "C");
     psmsgr_state_writer_close(w);
+    psmsgr_state_reader_close(r);
+}
+
+/* A reader preempted after loading `latest` can find that slot committed
+ * again but not yet published: the writer stores `latest` after the slot's
+ * seq. Reading it would let the next read return an older generation, so
+ * readers accept only the version `latest` names (state-channel.md §6.3). */
+static void stale_latest_is_not_read(void **state)
+{
+    psmsgr_state_writer *w = NULL;
+    assert_rc(open_writer(CHAN, 16, 2, 0, &w), PSMSGR_OK);
+    psmsgr_state_reader *r = open_reader(CHAN);
+    psmi_header h;
+    assert_rc(publish_str(w, "one", NULL), PSMSGR_OK); /* slot 0 */
+    assert_int_equal(raw_header(CHAN, &h), 0);
+    uint32_t stale = h.latest;
+    assert_rc(publish_str(w, "two", NULL), PSMSGR_OK);   /* slot 1 */
+    assert_rc(publish_str(w, "three", NULL), PSMSGR_OK); /* slot 0 again */
+    psmsgr_state_writer_close(w);
+
+    assert_int_equal(raw_write(data_path(CHAN), &stale, sizeof stale, 40), 0);
+    char str[32];
+    psmsgr_state_info info;
+    assert_rc(read_str(r, str, sizeof str, &info), PSMSGR_E_BUSY);
+    assert_rc(psmsgr_state_peek(r, &info), PSMSGR_E_BUSY);
     psmsgr_state_reader_close(r);
 }
 
@@ -1059,11 +1084,12 @@ static int expected_result(const unsigned char *f, size_t len)
         return PSMSGR_E_FORMAT;
     if (h.latest == PSMI_LATEST_NONE)
         return PSMSGR_E_NODATA;
-    if (h.latest >= h.slot_count)
+    if (!psmi_latest_valid(h.latest, h.slot_count))
         return PSMSGR_E_FORMAT;
+    uint32_t i = psmi_latest_slot(h.latest);
     psmi_slot s;
-    memcpy(&s, f + 128 + (size_t)h.latest * h.slot_stride, sizeof s);
-    if (s.seq & 1u)
+    memcpy(&s, f + 128 + (size_t)i * h.slot_stride, sizeof s);
+    if ((s.seq & 1u) || psmi_latest(i, s.seq) != h.latest)
         return PSMSGR_E_BUSY;
     return s.length > h.capacity ? PSMSGR_E_FORMAT : PSMSGR_OK;
 }
@@ -1111,7 +1137,7 @@ static void fuzz_header(void **state)
         default: { /* payload length of the latest slot beyond capacity */
             uint32_t latest, v = 41 + rnd() % 1000;
             memcpy(&latest, file + 40, sizeof latest);
-            memcpy(file + 128 + latest * 128 + 16, &v, sizeof v);
+            memcpy(file + 128 + psmi_latest_slot(latest) * 128 + 16, &v, sizeof v);
             break;
         }
         }
@@ -1232,6 +1258,7 @@ int main(void)
         TEST(read_results_and_sizes),
         TEST(heartbeat_channel),
         TEST(begin_commit_abort),
+        TEST(stale_latest_is_not_read),
         TEST(peek_timestamps),
         TEST(minor_version_recreates),
         TEST(invalid_file_needs_recreate),

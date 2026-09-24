@@ -21,6 +21,8 @@
 #define PSMI_MIN_SLOTS        2u
 #define PSMI_MAX_SLOTS        16u
 #define PSMI_LATEST_NONE      0xFFFFFFFFu
+#define PSMI_LATEST_SLOT_MASK 0xFu        /* header.latest bits 0-3: slot index */
+#define PSMI_LATEST_TAG_MASK  0x07FFFFFFu /* bits 4-30: the slot's seq / 2 */
 
 #define PSMI_CONFIG_NO_NOTIFY (1u << 0) /* header.config_flags */
 #define PSMI_STATE_RETIRED    (1u << 0) /* header.state */
@@ -53,6 +55,26 @@ typedef struct psmi_slot {
     uint32_t length;
     uint32_t reserved[3];
 } psmi_slot;
+
+/* header.latest for slot `i` committed with (even) `seq`: the index and the
+ * slot's commit count, which readers check against the slot's seq (§6.3).
+ * Bit 31 stays 0, so no published value equals PSMI_LATEST_NONE. */
+static inline uint32_t psmi_latest(uint32_t i, uint32_t seq)
+{
+    return ((seq >> 1) & PSMI_LATEST_TAG_MASK) << 4 | i;
+}
+
+static inline uint32_t psmi_latest_slot(uint32_t latest)
+{
+    return latest & PSMI_LATEST_SLOT_MASK;
+}
+
+/* NONE, or an encoding with a slot index below slot_count. */
+static inline int psmi_latest_valid(uint32_t latest, uint32_t slot_count)
+{
+    return latest == PSMI_LATEST_NONE
+           || ((latest >> 31) == 0 && psmi_latest_slot(latest) < slot_count);
+}
 
 _Static_assert(sizeof(psmi_header) == PSMI_HEADER_SIZE, "header size");
 _Static_assert(offsetof(psmi_header, magic) == 0, "magic");
