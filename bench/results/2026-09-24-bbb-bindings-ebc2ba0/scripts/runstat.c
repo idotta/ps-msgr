@@ -45,6 +45,7 @@ int main(int argc, char **argv)
             ++bad;
     }
     qsort(w, (size_t)n, sizeof *w, cmp);
-    printf("# runs %d, failed %d, wall median %.1f ms, max %.1f ms, max RSS %ld KiB\n", n, bad, w[n / 2], w[n - 1], rss);
+    printf("# runs %d, failed %d, wall median %.1f ms, max %.1f ms, max RSS %ld KiB\n", n, bad,
+           w[n / 2], w[n - 1], rss);
     return bad != 0;
 }
