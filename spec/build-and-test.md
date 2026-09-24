@@ -136,8 +136,15 @@ the library get correct package dependencies.
   - Hardening, matching Debian's `dpkg-buildflags`: `-D_FORTIFY_SOURCE=3`,
     `-fstack-protector-strong`, `-fstack-clash-protection` and
     `-Wl,-z,relro,-z,now`.
-  - Link with `-Wl,--no-undefined` and a version script that exports only
-    `psmsgr_*`.
+  - Link with `-Wl,--no-undefined`, `-Wl,--no-undefined-version` (where
+    the linker has it) and a version script that lists every exported
+    symbol (c-api.md).
+- **ABI check** (`abi_check`): CI fails unless the exported symbols and
+  their version nodes are exactly those in the version script, and the
+  `PSMSGR_API` declarations in the public headers are exactly those
+  symbols. Node names must be `PSMSGR_<major>[.<minor>]`, with the
+  library's major and a minor no newer than the library's. The SONAME must
+  be `libpsmsgr.so.<major>`.
 - **No `libatomic`:** CI fails if `nm -D libpsmsgr.so.1` lists any
   `__atomic_*` symbol, or if `readelf -d` shows `libatomic` in `NEEDED`.
   Either would mean a non-lock-free (e.g. 64-bit) atomic slipped in, which

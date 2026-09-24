@@ -78,6 +78,9 @@ endif()
 add_test(NAME abi_check
     COMMAND ${CMAKE_COMMAND}
         -DLIB=$<TARGET_FILE:psmsgr>
+        -DMAP=${PROJECT_SOURCE_DIR}/src/libpsmsgr.map
+        -DINCLUDE_DIR=${PROJECT_SOURCE_DIR}/include
+        -DVERSION=${PROJECT_VERSION}
         -DNM=${CMAKE_NM}
         -DREADELF=${CMAKE_READELF}
         -P ${PROJECT_SOURCE_DIR}/cmake/CheckAbi.cmake)

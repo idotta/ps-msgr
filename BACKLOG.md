@@ -8,18 +8,22 @@ resolves it.
 These can't be fixed after the tag without a SONAME bump, or the release
 process requires them.
 
-- [ ] **Strict ABI check.**
-  - `src/libpsmsgr.map` exports `psmsgr_*` by wildcard, and
-    `cmake/CheckAbi.cmake:30` only checks the name prefix, so a removed or
-    renamed symbol, or a stray new export, passes CI.
-  - List the 1.0 symbols explicitly in `PSMSGR_1`, put later additions in a
-    `PSMSGR_1.1` node, and check the SONAME.
 - [ ] **On-target run at the tag commit.**
   - `bench/results/2026-09-24-bbb-6511c25/` predates 844645d, which changed
     `src/state.c`.
   - Re-run `psmsgr-bench` and the torture test on the BeagleBone Black and
     record the results, as `spec/build-and-test.md` requires before each
     release.
+- [ ] **ABI baseline at the tag.**
+  - `abi_check` compares the map, the headers and the library of the same
+    commit. A symbol removed or renamed in all three passes, and it doesn't
+    see struct layouts (`psmsgr_state_options`, `_info`, `_desc`) at all.
+  - At the tag, record the 1.0.0 library's ABI (`abidw`, from
+    `abigail-tools`), and have CI run `abidiff` against the latest release
+    of the same major.
+  - After a major bump, skip the comparison until that major's first
+    release, which becomes the new baseline. Breaking changes stay allowed;
+    they need a major bump.
 - [ ] **Binding versions.** `bindings/python/pyproject.toml:8` and
   `bindings/csharp/PsMsgr/PsMsgr.csproj:10` are `0.1.0`, while the library is
   1.0.0. Decide on the bindings' stability promise and set their versions to
