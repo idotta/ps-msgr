@@ -446,7 +446,8 @@ for (;;) {
 - There is no waiter count, which keeps reader mappings read-only
   (`FUTEX_WAIT` works on read-only shared mappings). The price is that the
   writer makes one `FUTEX_WAKE` syscall per publish, even when nobody is
-  waiting. Channels published at high rates that are only ever polled SHOULD
+  waiting (about 2.8 µs on the BeagleBone Black, 2.6× a small `NO_NOTIFY`
+  publish). Channels published at high rates that are only ever polled SHOULD
   be created with `NO_NOTIFY`. On those channels, `wait` returns
   `PSMSGR_E_NOTSUP`.
 - An unattached reader waits by retrying the attach every 10 ms until it
@@ -495,10 +496,17 @@ Reboots clear tmpfs, so there is normally no need to unlink.
 - Another process can still `ftruncate` a channel file it has write access
   to, and readers then get `SIGBUS`. File permissions are the only
   protection; the library does not guard against this.
-- **Timestamps on the AM335x.** The Cortex-A8 has no ARM generic timer, so
-  `clock_gettime(CLOCK_MONOTONIC)` probably can't use the vDSO and becomes a
-  real syscall. Publishing and `psmsgr_now_ns()` therefore likely cost one
-  syscall on the BeagleBone Black; `peek` and `read` don't. `bench/` must
-  measure this on the target.
+- **Timestamps on the AM335x.** The Cortex-A8 has no ARM generic timer, and
+  the vDSO can't serve `CLOCK_MONOTONIC` from the `dmtimer` clocksource.
+  Measured on the BeagleBone Black (kernel 6.18, 1 GHz): `clock_gettime`
+  through libc costs the same as the raw syscall, about 1.3 µs (twice
+  `getppid`). So every publish and every `psmsgr_now_ns()` makes a syscall:
+  a 16 B `NO_NOTIFY` publish costs about 1.7 µs, of which about 1.35 µs is
+  the clock. `peek` costs about 0.4 µs, and `read` about 0.46 µs plus the
+  copy (about 0.9 GB/s, so 72 µs for 64 KiB).
+- **Waking vs polling on the AM335x.** `wait` wakes in about 150 µs
+  (median, p99 about 160 µs). Peeking every 100 µs on a `NO_NOTIFY` channel
+  has a lower median (about 95 µs) but a p99 of about 525 µs, and burns
+  CPU.
 - A reader keeps the last published value after the writer dies. Use
   `timestamp_ns` age and/or `writer_alive` to detect this.

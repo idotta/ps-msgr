@@ -26,7 +26,9 @@ RFC 2119. Sections marked *non-normative* are guidance only.
   (`libpsmsgr`). The Python and C# packages are thin bindings over it; they
   MUST NOT reimplement the shared-memory protocol.
 - Readers never block the writer, and the writer never blocks on readers.
-- No syscalls on the publish/read hot path, except one optional futex wake per publish.
+- No syscalls on the read/peek hot path. Publish makes at most two: one
+  optional futex wake, and `clock_gettime` where the vDSO can't serve it
+  (the case on the AM335x).
 - Correct on multi-core and weakly ordered CPUs too (x86-64 and AArch64
   development machines, CI runners, other boards), even though the primary
   target is single-core.

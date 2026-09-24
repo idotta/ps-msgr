@@ -1,0 +1,38 @@
+# psmsgr: 1.0.0
+# kernel: Linux 6.18.39-bone44-preditor.2 armv7l
+# cpu: ARMv7 Processor rev 2 (v7l)
+# hardware: Generic AM33XX (Flattened Device Tree)
+# board: TI AM335x BeagleBone Black
+# cpus: 1 online
+# governor: performance, 1000 MHz
+# clocksource: dmtimer
+# dir: /dev/shm/psmsgr-bench-gczAc8
+# settings: iterations 1000, warm-up 1000, batch 100, 1.0 s at 500 Hz per run
+test,size_bytes,n,min_ns,median_ns,p99_ns,max_ns,busy,missed
+timer overhead,,1000,21,21,21,122,,
+clock_gettime,,100,1353,1355,2340,2381,,
+clock_gettime syscall,,100,1293,1293,1776,2137,,
+getppid syscall,,100,656,657,940,2178,,
+psmsgr_now_ns,,100,1423,1423,1723,1802,,
+publish NO_NOTIFY,16,1000,1693,1703,39858,47732,,
+publish,16,1000,4477,4494,4843,25892,,
+read,16,1000,463,464,663,1208,,
+peek,16,1000,402,417,615,2714,,
+publish NO_NOTIFY,256,1000,1860,1876,2128,3925,,
+publish,256,1000,4733,4745,5078,5841,,
+read,256,1000,590,595,798,1723,,
+peek,256,1000,410,410,608,788,,
+publish NO_NOTIFY,4096,1000,5675,5713,43038,64785,,
+publish,4096,1000,8846,9017,13936,19728,,
+read,4096,1000,3440,4605,6059,67313,,
+peek,4096,1000,425,426,623,945,,
+publish NO_NOTIFY,65536,1000,72063,72377,160068,166317,,
+publish,65536,1000,75264,75622,170480,260508,,
+read,65536,1000,56493,71653,157856,173284,,
+peek,65536,1000,410,417,615,1749,,
+read, writer active,16,368924,1791,2458,2584,6160459,0,
+read, writer active,256,360250,1958,2666,2958,538916,0,
+read, writer active,4096,138233,5125,6625,7167,8706125,0,
+read, writer active,65536,10031,71541,73125,361042,11279042,0,
+wait wake-up,16,499,50291,147750,158542,906834,,0
+poll wake-up, 100 us,16,498,43583,129250,573042,2125667,,1
