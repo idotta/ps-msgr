@@ -90,15 +90,31 @@ encoding is up to the application: `struct`, `ctypes.Structure`,
 
 ## C# — `PsMsgr`
 
-- The library targets `net8.0`, so it also runs on newer runtimes (use the
-  current LTS runtime on the device). It needs `AllowUnsafeBlocks` and uses
-  `LibraryImport` source-generated P/Invoke, with no marshalling on the hot
-  path.
-- A `NativeLibrary.SetDllImportResolver` maps `"psmsgr"` to
-  `$PSMSGR_LIBRARY` or `libpsmsgr.so.1`.
+- The library targets **`netstandard2.1`**, so the same package runs on
+  .NET Core 3.x / .NET 5+ (use the current LTS runtime on the device), Mono
+  6.4+ (Debian's `mono-runtime` on armhf) and Unity. It is built with
+  `LangVersion` `latest`, `Nullable` `enable` and `AllowUnsafeBlocks`.
+  Compiler attributes that `netstandard2.1` lacks (`IsExternalInit` for
+  records and `init`) are defined `internal` in the assembly.
+- P/Invoke uses `[DllImport("libpsmsgr.so.1")]` with the versioned name
+  hard-coded and **blittable signatures only**: pointers, integers, and
+  `byte*` for strings. The binding encodes strings to NUL-terminated UTF-8
+  itself (`Open`/`Unlink` only, not the hot path). Hot-path calls therefore
+  need no marshalling stub, which is also what `LibraryImport` would give on
+  `net7.0+`.
+- `PSMSGR_LIBRARY` override: `NativeLibrary` isn't part of `netstandard2.1`.
+  Instead, the static constructor of the interop class calls
+  `dlopen($PSMSGR_LIBRARY, RTLD_NOW | RTLD_GLOBAL)` through
+  `[DllImport("libdl.so.2")]` when the variable is set. glibc reuses an
+  already-loaded library whose SONAME matches a later `dlopen` of that name,
+  so the `DllImport` resolves to the preloaded copy. Without the variable,
+  the normal search path applies (`LD_LIBRARY_PATH`, `ld.so.cache`).
 - The NuGet package MAY bundle `runtimes/linux-arm/native/libpsmsgr.so.1` and
-  `runtimes/linux-x64/native/libpsmsgr.so.1` (for development). Otherwise the
-  library comes from the system.
+  `runtimes/linux-x64/native/libpsmsgr.so.1` (for development). .NET Core
+  honors these; Mono does not, so on Mono the library comes from the system.
+- Multi-targeting `netstandard2.1;net8.0` (for `LibraryImport`,
+  `NativeLibrary`, `UnixFileMode`) is allowed later, if something needs it.
+  The public API MUST stay identical across targets.
 - Native handles are wrapped in `SafeHandle` subclasses.
 
 ```csharp
@@ -114,16 +130,16 @@ public sealed class StateWriter : IDisposable
     public void Dispose();
 }
 
-public sealed record StateOptions
+public sealed class StateOptions
 {
-    public required uint Capacity { get; init; }
-    public uint SlotCount   { get; init; } = 3;
-    public uint PayloadType { get; init; }
-    public UnixFileMode Mode { get; init; } =                          // 0644
-        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
-    public bool Recreate    { get; init; }
-    public bool Notify      { get; init; } = true;
-    public string? Directory { get; init; }
+    public StateOptions(uint capacity) { Capacity = capacity; }
+    public uint Capacity    { get; }
+    public uint SlotCount   { get; set; } = 3;
+    public uint PayloadType { get; set; }
+    public uint Mode        { get; set; } = 0x1A4;                   // 0644 (C# has no octal literals)
+    public bool Recreate    { get; set; }
+    public bool Notify      { get; set; } = true;
+    public string? Directory { get; set; }
 }
 
 public sealed class StateReader : IDisposable
