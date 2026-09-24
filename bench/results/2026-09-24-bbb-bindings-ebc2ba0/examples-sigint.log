@@ -1,0 +1,46 @@
+=== cs writer (--count 3) -> c reader, then SIGINT to the reader
+writer exit status: 0, printed 3 values
+reader exit status after SIGINT: 0
+waiting for the writer
+waiting for the writer
+waiting for the writer
+waiting for the writer
+waiting for the writer
+seq=1 speed=1505.0 rpm current=2.25 A temperature=40.5 C
+seq=2 speed=1510.0 rpm current=2.50 A temperature=41.0 C
+seq=3 speed=1515.0 rpm current=2.75 A temperature=41.5 C
+writer gone: last value 0.3 s old
+writer gone: last value 0.6 s old
+writer gone: last value 0.9 s old
+=== c writer (--count 3) -> py reader, then SIGINT to the reader
+writer exit status: 0, printed 3 values
+reader exit status after SIGINT: 0
+seq=3 speed=1515.0 rpm current=2.75 A temperature=41.5 C
+writer gone: last value 2.0 s old
+writer gone: last value 2.3 s old
+seq=1 speed=1505.0 rpm current=2.25 A temperature=40.5 C
+seq=2 speed=1510.0 rpm current=2.50 A temperature=41.0 C
+seq=3 speed=1515.0 rpm current=2.75 A temperature=41.5 C
+writer gone: last value 0.3 s old
+writer gone: last value 0.6 s old
+writer gone: last value 0.9 s old
+=== py writer (--count 3) -> cs reader, then SIGINT to the reader
+writer exit status: 0, printed 3 values
+reader exit status after SIGINT: 0
+seq=3 speed=1515.0 rpm current=2.75 A temperature=41.5 C
+writer gone: last value 1.6 s old
+writer gone: last value 1.9 s old
+writer gone: last value 2.2 s old
+writer gone: last value 2.5 s old
+writer gone: last value 2.8 s old
+writer gone: last value 3.1 s old
+writer gone: last value 3.4 s old
+seq=1 speed=1505.0 rpm current=2.25 A temperature=40.5 C
+seq=2 speed=1510.0 rpm current=2.50 A temperature=41.0 C
+seq=3 speed=1515.0 rpm current=2.75 A temperature=41.5 C
+writer gone: last value 0.3 s old
+writer gone: last value 0.6 s old
+writer gone: last value 0.9 s old
+=== c writer, SIGINT after 2 s: exit status 0, 21 values, last: seq=21 speed=1605.0 rpm current=3.25 A temperature=50.5 C
+=== py writer, SIGINT after 2 s: exit status 0, 14 values, last: seq=14 speed=1570.0 rpm current=3.50 A temperature=47.0 C
+=== cs writer, SIGINT after 2 s: exit status 0, 20 values, last: seq=20 speed=1600.0 rpm current=3.00 A temperature=50.0 C

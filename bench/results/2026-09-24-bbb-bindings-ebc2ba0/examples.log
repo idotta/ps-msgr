@@ -1,0 +1,60 @@
+=== run 1
+standalone C built on the board: gcc -O2 -Wall -Wextra -Werror -I examples <src> -lpsmsgr (libpsmsgr-dev; no cmake or pkg-config on the image)
+c -> c: ok
+c -> py: ok
+c -> cs: ok
+py -> c: ok
+py -> py: ok
+py -> cs: ok
+cs -> c: ok
+cs -> py: ok
+cs -> cs: ok
+standalone -> standalone: ok
+writer gone: ok
+stale: ok
+payload type mismatch: ok
+
+real	0m23.565s
+user	0m9.322s
+sys	0m3.108s
+exit=0
+=== run 2
+standalone C built on the board: gcc -O2 -Wall -Wextra -Werror -I examples <src> -lpsmsgr (libpsmsgr-dev; no cmake or pkg-config on the image)
+c -> c: ok
+c -> py: ok
+c -> cs: ok
+py -> c: ok
+py -> py: ok
+py -> cs: ok
+cs -> c: ok
+cs -> py: ok
+cs -> cs: ok
+standalone -> standalone: ok
+writer gone: ok
+stale: ok
+payload type mismatch: ok
+
+real	0m23.196s
+user	0m9.459s
+sys	0m2.903s
+exit=0
+=== run 3
+standalone C built on the board: gcc -O2 -Wall -Wextra -Werror -I examples <src> -lpsmsgr (libpsmsgr-dev; no cmake or pkg-config on the image)
+c -> c: ok
+c -> py: ok
+c -> cs: ok
+py -> c: ok
+py -> py: ok
+py -> cs: ok
+cs -> c: ok
+cs -> py: ok
+cs -> cs: ok
+standalone -> standalone: ok
+writer gone: ok
+stale: ok
+payload type mismatch: ok
+
+real	0m23.233s
+user	0m9.513s
+sys	0m2.860s
+exit=0

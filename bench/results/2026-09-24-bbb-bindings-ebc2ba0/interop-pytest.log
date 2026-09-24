@@ -1,0 +1,403 @@
+agents: C /home/debian/bbb-bindings/build/tests/interop_helper (armhf-release), Python agent_py.py on the venv wheel, C# /home/debian/bbb-bindings/cs/agent_cs/PsMsgr.InteropAgent (Native AOT linux-arm); library: installed libpsmsgr1
+=== run 1
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.5, pluggy-1.6.0 -- /home/debian/bbb-bindings/repo/interop/../../venv/bin/python
+rootdir: /home/debian/bbb-bindings/repo/interop
+configfile: pyproject.toml
+collecting ... collected 52 items
+
+test_interop.py::test_payload_layout PASSED                              [  1%]
+test_interop.py::test_basic[c-c] PASSED                                  [  3%]
+test_interop.py::test_basic[c-py] PASSED                                 [  5%]
+test_interop.py::test_basic[c-cs] PASSED                                 [  7%]
+test_interop.py::test_basic[py-c] PASSED                                 [  9%]
+test_interop.py::test_basic[py-py] PASSED                                [ 11%]
+test_interop.py::test_basic[py-cs] PASSED                                [ 13%]
+test_interop.py::test_basic[cs-c] PASSED                                 [ 15%]
+test_interop.py::test_basic[cs-py] PASSED                                [ 17%]
+test_interop.py::test_basic[cs-cs] PASSED                                [ 19%]
+test_interop.py::test_lazy_attach[c-c] PASSED                            [ 21%]
+test_interop.py::test_lazy_attach[c-py] PASSED                           [ 23%]
+test_interop.py::test_lazy_attach[c-cs] PASSED                           [ 25%]
+test_interop.py::test_lazy_attach[py-c] PASSED                           [ 26%]
+test_interop.py::test_lazy_attach[py-py] PASSED                          [ 28%]
+test_interop.py::test_lazy_attach[py-cs] PASSED                          [ 30%]
+test_interop.py::test_lazy_attach[cs-c] PASSED                           [ 32%]
+test_interop.py::test_lazy_attach[cs-py] PASSED                          [ 34%]
+test_interop.py::test_lazy_attach[cs-cs] PASSED                          [ 36%]
+test_interop.py::test_wait_notify[c-c] PASSED                            [ 38%]
+test_interop.py::test_wait_notify[c-py] PASSED                           [ 40%]
+test_interop.py::test_wait_notify[c-cs] PASSED                           [ 42%]
+test_interop.py::test_wait_notify[py-c] PASSED                           [ 44%]
+test_interop.py::test_wait_notify[py-py] PASSED                          [ 46%]
+test_interop.py::test_wait_notify[py-cs] PASSED                          [ 48%]
+test_interop.py::test_wait_notify[cs-c] PASSED                           [ 50%]
+test_interop.py::test_wait_notify[cs-py] PASSED                          [ 51%]
+test_interop.py::test_wait_notify[cs-cs] PASSED                          [ 53%]
+test_interop.py::test_recreate[c-c] PASSED                               [ 55%]
+test_interop.py::test_recreate[c-py] PASSED                              [ 57%]
+test_interop.py::test_recreate[c-cs] PASSED                              [ 59%]
+test_interop.py::test_recreate[py-c] PASSED                              [ 61%]
+test_interop.py::test_recreate[py-py] PASSED                             [ 63%]
+test_interop.py::test_recreate[py-cs] PASSED                             [ 65%]
+test_interop.py::test_recreate[cs-c] PASSED                              [ 67%]
+test_interop.py::test_recreate[cs-py] PASSED                             [ 69%]
+test_interop.py::test_recreate[cs-cs] PASSED                             [ 71%]
+test_interop.py::test_writer_death[c-c] PASSED                           [ 73%]
+test_interop.py::test_writer_death[c-py] PASSED                          [ 75%]
+test_interop.py::test_writer_death[c-cs] PASSED                          [ 76%]
+test_interop.py::test_writer_death[py-c] PASSED                          [ 78%]
+test_interop.py::test_writer_death[py-py] PASSED                         [ 80%]
+test_interop.py::test_writer_death[py-cs] PASSED                         [ 82%]
+test_interop.py::test_writer_death[cs-c] PASSED                          [ 84%]
+test_interop.py::test_writer_death[cs-py] PASSED                         [ 86%]
+test_interop.py::test_writer_death[cs-cs] PASSED                         [ 88%]
+test_interop.py::test_continuous[c] PASSED                               [ 90%]
+test_interop.py::test_continuous[py] FAILED                              [ 92%]
+test_interop.py::test_continuous[cs] PASSED                              [ 94%]
+test_interop.py::test_errors[c] PASSED                                   [ 96%]
+test_interop.py::test_errors[py] PASSED                                  [ 98%]
+test_interop.py::test_errors[cs] PASSED                                  [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_continuous[py] ______________________________
+
+spawn = <function spawn.<locals>.start at 0xb5f59f78>
+tmp_path = PosixPath('/dev/shm/pytest-of-debian/pytest-0/test_continuous_py_0')
+writer = 'py'
+
+    @pytest.mark.parametrize("writer", LANGS)
+    def test_continuous(spawn: Spawn, tmp_path: Path, writer: str) -> None:
+        """A writer at 1 kHz for 2 s, and a polling and a waiting reader per language."""
+        rate, count = 1000, 2000
+        pollers = {lang: spawn(lang, "read", tmp_path, CHAN, "--for", 2500) for lang in LANGS}
+        waiters = {lang: spawn(lang) for lang in LANGS}
+        final: list[int] = []
+        done = threading.Event()
+    
+        def follow(r: Agent) -> list[dict[str, Any]]:
+            """Waits for and reads each change until the writer's last one (or the test
+            failed: final stays empty)."""
+            results: list[dict[str, Any]] = []
+            last = 0
+            while not done.is_set() or final[:1] not in ([], [last]):
+                changed = r.ask("wait", tmp_path, CHAN, last, 100)
+                assert changed in ({"changed": True}, {"changed": False}), changed
+                if changed["changed"]:
+                    results.append(r.ask("read", tmp_path, CHAN))
+                    last = results[-1].get("generation", last)
+            return results
+    
+        with ThreadPoolExecutor(len(waiters)) as pool:
+            followed = {lang: pool.submit(follow, r) for lang, r in waiters.items()}
+            try:
+                sequences = [BASE + i for i in range(count)]
+                w = spawn(writer, "write", tmp_path, CHAN, "--rate", rate, *sequences)
+                assert w.next() == {"opened": True}
+                published = {}
+                for n in sequences:
+                    result = w.next()
+                    assert result["sequence"] == n
+                    published[result["generation"]] = n
+                assert w.finish() == []
+                final.append(result["generation"])
+            finally:
+                done.set()
+            stream = {lang: future.result() for lang, future in followed.items()}
+    
+        for lang, r in pollers.items():
+            *results, summary = r.finish()
+            assert summary.keys() == {"reads", "busy"}
+            values, _ = check_stream(results, published)
+>           assert values > 0, f"{lang} poller"
+E           AssertionError: c poller
+E           assert 0 > 0
+
+test_interop.py:269: AssertionError
+============================= slowest 10 durations =============================
+14.92s call     test_interop.py::test_continuous[py]
+5.87s call     test_interop.py::test_continuous[c]
+5.85s call     test_interop.py::test_continuous[cs]
+3.05s call     test_interop.py::test_wait_notify[py-py]
+2.59s call     test_interop.py::test_wait_notify[py-cs]
+2.48s call     test_interop.py::test_wait_notify[py-c]
+2.10s call     test_interop.py::test_recreate[py-py]
+1.54s call     test_interop.py::test_recreate[py-cs]
+1.52s call     test_interop.py::test_recreate[py-c]
+1.50s call     test_interop.py::test_errors[py]
+=========================== short test summary info ============================
+FAILED test_interop.py::test_continuous[py] - AssertionError: c poller
+=================== 1 failed, 51 passed in 65.56s (0:01:05) ====================
+
+real	1m8.507s
+user	0m53.497s
+sys	0m11.078s
+exit=1
+=== run 2
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.5, pluggy-1.6.0 -- /home/debian/bbb-bindings/repo/interop/../../venv/bin/python
+rootdir: /home/debian/bbb-bindings/repo/interop
+configfile: pyproject.toml
+collecting ... collected 52 items
+
+test_interop.py::test_payload_layout PASSED                              [  1%]
+test_interop.py::test_basic[c-c] PASSED                                  [  3%]
+test_interop.py::test_basic[c-py] PASSED                                 [  5%]
+test_interop.py::test_basic[c-cs] PASSED                                 [  7%]
+test_interop.py::test_basic[py-c] PASSED                                 [  9%]
+test_interop.py::test_basic[py-py] PASSED                                [ 11%]
+test_interop.py::test_basic[py-cs] PASSED                                [ 13%]
+test_interop.py::test_basic[cs-c] PASSED                                 [ 15%]
+test_interop.py::test_basic[cs-py] PASSED                                [ 17%]
+test_interop.py::test_basic[cs-cs] PASSED                                [ 19%]
+test_interop.py::test_lazy_attach[c-c] PASSED                            [ 21%]
+test_interop.py::test_lazy_attach[c-py] PASSED                           [ 23%]
+test_interop.py::test_lazy_attach[c-cs] PASSED                           [ 25%]
+test_interop.py::test_lazy_attach[py-c] PASSED                           [ 26%]
+test_interop.py::test_lazy_attach[py-py] PASSED                          [ 28%]
+test_interop.py::test_lazy_attach[py-cs] PASSED                          [ 30%]
+test_interop.py::test_lazy_attach[cs-c] PASSED                           [ 32%]
+test_interop.py::test_lazy_attach[cs-py] PASSED                          [ 34%]
+test_interop.py::test_lazy_attach[cs-cs] PASSED                          [ 36%]
+test_interop.py::test_wait_notify[c-c] PASSED                            [ 38%]
+test_interop.py::test_wait_notify[c-py] PASSED                           [ 40%]
+test_interop.py::test_wait_notify[c-cs] PASSED                           [ 42%]
+test_interop.py::test_wait_notify[py-c] PASSED                           [ 44%]
+test_interop.py::test_wait_notify[py-py] PASSED                          [ 46%]
+test_interop.py::test_wait_notify[py-cs] PASSED                          [ 48%]
+test_interop.py::test_wait_notify[cs-c] PASSED                           [ 50%]
+test_interop.py::test_wait_notify[cs-py] PASSED                          [ 51%]
+test_interop.py::test_wait_notify[cs-cs] PASSED                          [ 53%]
+test_interop.py::test_recreate[c-c] PASSED                               [ 55%]
+test_interop.py::test_recreate[c-py] PASSED                              [ 57%]
+test_interop.py::test_recreate[c-cs] PASSED                              [ 59%]
+test_interop.py::test_recreate[py-c] PASSED                              [ 61%]
+test_interop.py::test_recreate[py-py] PASSED                             [ 63%]
+test_interop.py::test_recreate[py-cs] PASSED                             [ 65%]
+test_interop.py::test_recreate[cs-c] PASSED                              [ 67%]
+test_interop.py::test_recreate[cs-py] PASSED                             [ 69%]
+test_interop.py::test_recreate[cs-cs] PASSED                             [ 71%]
+test_interop.py::test_writer_death[c-c] PASSED                           [ 73%]
+test_interop.py::test_writer_death[c-py] PASSED                          [ 75%]
+test_interop.py::test_writer_death[c-cs] PASSED                          [ 76%]
+test_interop.py::test_writer_death[py-c] PASSED                          [ 78%]
+test_interop.py::test_writer_death[py-py] PASSED                         [ 80%]
+test_interop.py::test_writer_death[py-cs] PASSED                         [ 82%]
+test_interop.py::test_writer_death[cs-c] PASSED                          [ 84%]
+test_interop.py::test_writer_death[cs-py] PASSED                         [ 86%]
+test_interop.py::test_writer_death[cs-cs] PASSED                         [ 88%]
+test_interop.py::test_continuous[c] PASSED                               [ 90%]
+test_interop.py::test_continuous[py] FAILED                              [ 92%]
+test_interop.py::test_continuous[cs] PASSED                              [ 94%]
+test_interop.py::test_errors[c] PASSED                                   [ 96%]
+test_interop.py::test_errors[py] PASSED                                  [ 98%]
+test_interop.py::test_errors[cs] PASSED                                  [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_continuous[py] ______________________________
+
+spawn = <function spawn.<locals>.start at 0xb5e9ff28>
+tmp_path = PosixPath('/dev/shm/pytest-of-debian/pytest-1/test_continuous_py_0')
+writer = 'py'
+
+    @pytest.mark.parametrize("writer", LANGS)
+    def test_continuous(spawn: Spawn, tmp_path: Path, writer: str) -> None:
+        """A writer at 1 kHz for 2 s, and a polling and a waiting reader per language."""
+        rate, count = 1000, 2000
+        pollers = {lang: spawn(lang, "read", tmp_path, CHAN, "--for", 2500) for lang in LANGS}
+        waiters = {lang: spawn(lang) for lang in LANGS}
+        final: list[int] = []
+        done = threading.Event()
+    
+        def follow(r: Agent) -> list[dict[str, Any]]:
+            """Waits for and reads each change until the writer's last one (or the test
+            failed: final stays empty)."""
+            results: list[dict[str, Any]] = []
+            last = 0
+            while not done.is_set() or final[:1] not in ([], [last]):
+                changed = r.ask("wait", tmp_path, CHAN, last, 100)
+                assert changed in ({"changed": True}, {"changed": False}), changed
+                if changed["changed"]:
+                    results.append(r.ask("read", tmp_path, CHAN))
+                    last = results[-1].get("generation", last)
+            return results
+    
+        with ThreadPoolExecutor(len(waiters)) as pool:
+            followed = {lang: pool.submit(follow, r) for lang, r in waiters.items()}
+            try:
+                sequences = [BASE + i for i in range(count)]
+                w = spawn(writer, "write", tmp_path, CHAN, "--rate", rate, *sequences)
+                assert w.next() == {"opened": True}
+                published = {}
+                for n in sequences:
+                    result = w.next()
+                    assert result["sequence"] == n
+                    published[result["generation"]] = n
+                assert w.finish() == []
+                final.append(result["generation"])
+            finally:
+                done.set()
+            stream = {lang: future.result() for lang, future in followed.items()}
+    
+        for lang, r in pollers.items():
+            *results, summary = r.finish()
+            assert summary.keys() == {"reads", "busy"}
+            values, _ = check_stream(results, published)
+>           assert values > 0, f"{lang} poller"
+E           AssertionError: c poller
+E           assert 0 > 0
+
+test_interop.py:269: AssertionError
+============================= slowest 10 durations =============================
+14.66s call     test_interop.py::test_continuous[py]
+5.88s call     test_interop.py::test_continuous[c]
+5.84s call     test_interop.py::test_continuous[cs]
+3.06s call     test_interop.py::test_wait_notify[py-py]
+2.54s call     test_interop.py::test_wait_notify[py-c]
+2.50s call     test_interop.py::test_wait_notify[py-cs]
+2.10s call     test_interop.py::test_recreate[py-py]
+1.54s call     test_interop.py::test_recreate[py-cs]
+1.52s call     test_interop.py::test_recreate[py-c]
+1.50s call     test_interop.py::test_errors[py]
+=========================== short test summary info ============================
+FAILED test_interop.py::test_continuous[py] - AssertionError: c poller
+=================== 1 failed, 51 passed in 64.50s (0:01:04) ====================
+
+real	1m7.160s
+user	0m52.613s
+sys	0m11.036s
+exit=1
+=== run 3
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.5, pluggy-1.6.0 -- /home/debian/bbb-bindings/repo/interop/../../venv/bin/python
+rootdir: /home/debian/bbb-bindings/repo/interop
+configfile: pyproject.toml
+collecting ... collected 52 items
+
+test_interop.py::test_payload_layout PASSED                              [  1%]
+test_interop.py::test_basic[c-c] PASSED                                  [  3%]
+test_interop.py::test_basic[c-py] PASSED                                 [  5%]
+test_interop.py::test_basic[c-cs] PASSED                                 [  7%]
+test_interop.py::test_basic[py-c] PASSED                                 [  9%]
+test_interop.py::test_basic[py-py] PASSED                                [ 11%]
+test_interop.py::test_basic[py-cs] PASSED                                [ 13%]
+test_interop.py::test_basic[cs-c] PASSED                                 [ 15%]
+test_interop.py::test_basic[cs-py] PASSED                                [ 17%]
+test_interop.py::test_basic[cs-cs] PASSED                                [ 19%]
+test_interop.py::test_lazy_attach[c-c] PASSED                            [ 21%]
+test_interop.py::test_lazy_attach[c-py] PASSED                           [ 23%]
+test_interop.py::test_lazy_attach[c-cs] PASSED                           [ 25%]
+test_interop.py::test_lazy_attach[py-c] PASSED                           [ 26%]
+test_interop.py::test_lazy_attach[py-py] PASSED                          [ 28%]
+test_interop.py::test_lazy_attach[py-cs] PASSED                          [ 30%]
+test_interop.py::test_lazy_attach[cs-c] PASSED                           [ 32%]
+test_interop.py::test_lazy_attach[cs-py] PASSED                          [ 34%]
+test_interop.py::test_lazy_attach[cs-cs] PASSED                          [ 36%]
+test_interop.py::test_wait_notify[c-c] PASSED                            [ 38%]
+test_interop.py::test_wait_notify[c-py] PASSED                           [ 40%]
+test_interop.py::test_wait_notify[c-cs] PASSED                           [ 42%]
+test_interop.py::test_wait_notify[py-c] PASSED                           [ 44%]
+test_interop.py::test_wait_notify[py-py] PASSED                          [ 46%]
+test_interop.py::test_wait_notify[py-cs] PASSED                          [ 48%]
+test_interop.py::test_wait_notify[cs-c] PASSED                           [ 50%]
+test_interop.py::test_wait_notify[cs-py] PASSED                          [ 51%]
+test_interop.py::test_wait_notify[cs-cs] PASSED                          [ 53%]
+test_interop.py::test_recreate[c-c] PASSED                               [ 55%]
+test_interop.py::test_recreate[c-py] PASSED                              [ 57%]
+test_interop.py::test_recreate[c-cs] PASSED                              [ 59%]
+test_interop.py::test_recreate[py-c] PASSED                              [ 61%]
+test_interop.py::test_recreate[py-py] PASSED                             [ 63%]
+test_interop.py::test_recreate[py-cs] PASSED                             [ 65%]
+test_interop.py::test_recreate[cs-c] PASSED                              [ 67%]
+test_interop.py::test_recreate[cs-py] PASSED                             [ 69%]
+test_interop.py::test_recreate[cs-cs] PASSED                             [ 71%]
+test_interop.py::test_writer_death[c-c] PASSED                           [ 73%]
+test_interop.py::test_writer_death[c-py] PASSED                          [ 75%]
+test_interop.py::test_writer_death[c-cs] PASSED                          [ 76%]
+test_interop.py::test_writer_death[py-c] PASSED                          [ 78%]
+test_interop.py::test_writer_death[py-py] PASSED                         [ 80%]
+test_interop.py::test_writer_death[py-cs] PASSED                         [ 82%]
+test_interop.py::test_writer_death[cs-c] PASSED                          [ 84%]
+test_interop.py::test_writer_death[cs-py] PASSED                         [ 86%]
+test_interop.py::test_writer_death[cs-cs] PASSED                         [ 88%]
+test_interop.py::test_continuous[c] PASSED                               [ 90%]
+test_interop.py::test_continuous[py] FAILED                              [ 92%]
+test_interop.py::test_continuous[cs] PASSED                              [ 94%]
+test_interop.py::test_errors[c] PASSED                                   [ 96%]
+test_interop.py::test_errors[py] PASSED                                  [ 98%]
+test_interop.py::test_errors[cs] PASSED                                  [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_continuous[py] ______________________________
+
+spawn = <function spawn.<locals>.start at 0xb5e8ff28>
+tmp_path = PosixPath('/dev/shm/pytest-of-debian/pytest-2/test_continuous_py_0')
+writer = 'py'
+
+    @pytest.mark.parametrize("writer", LANGS)
+    def test_continuous(spawn: Spawn, tmp_path: Path, writer: str) -> None:
+        """A writer at 1 kHz for 2 s, and a polling and a waiting reader per language."""
+        rate, count = 1000, 2000
+        pollers = {lang: spawn(lang, "read", tmp_path, CHAN, "--for", 2500) for lang in LANGS}
+        waiters = {lang: spawn(lang) for lang in LANGS}
+        final: list[int] = []
+        done = threading.Event()
+    
+        def follow(r: Agent) -> list[dict[str, Any]]:
+            """Waits for and reads each change until the writer's last one (or the test
+            failed: final stays empty)."""
+            results: list[dict[str, Any]] = []
+            last = 0
+            while not done.is_set() or final[:1] not in ([], [last]):
+                changed = r.ask("wait", tmp_path, CHAN, last, 100)
+                assert changed in ({"changed": True}, {"changed": False}), changed
+                if changed["changed"]:
+                    results.append(r.ask("read", tmp_path, CHAN))
+                    last = results[-1].get("generation", last)
+            return results
+    
+        with ThreadPoolExecutor(len(waiters)) as pool:
+            followed = {lang: pool.submit(follow, r) for lang, r in waiters.items()}
+            try:
+                sequences = [BASE + i for i in range(count)]
+                w = spawn(writer, "write", tmp_path, CHAN, "--rate", rate, *sequences)
+                assert w.next() == {"opened": True}
+                published = {}
+                for n in sequences:
+                    result = w.next()
+                    assert result["sequence"] == n
+                    published[result["generation"]] = n
+                assert w.finish() == []
+                final.append(result["generation"])
+            finally:
+                done.set()
+            stream = {lang: future.result() for lang, future in followed.items()}
+    
+        for lang, r in pollers.items():
+            *results, summary = r.finish()
+            assert summary.keys() == {"reads", "busy"}
+            values, _ = check_stream(results, published)
+>           assert values > 0, f"{lang} poller"
+E           AssertionError: c poller
+E           assert 0 > 0
+
+test_interop.py:269: AssertionError
+============================= slowest 10 durations =============================
+14.67s call     test_interop.py::test_continuous[py]
+5.88s call     test_interop.py::test_continuous[c]
+5.84s call     test_interop.py::test_continuous[cs]
+3.06s call     test_interop.py::test_wait_notify[py-py]
+2.48s call     test_interop.py::test_wait_notify[py-cs]
+2.48s call     test_interop.py::test_wait_notify[py-c]
+2.11s call     test_interop.py::test_recreate[py-py]
+1.54s call     test_interop.py::test_recreate[py-cs]
+1.53s call     test_interop.py::test_recreate[py-c]
+1.50s call     test_interop.py::test_errors[py]
+=========================== short test summary info ============================
+FAILED test_interop.py::test_continuous[py] - AssertionError: c poller
+=================== 1 failed, 51 passed in 64.52s (0:01:04) ====================
+
+real	1m7.168s
+user	0m52.583s
+sys	0m11.068s
+exit=1

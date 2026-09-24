@@ -1,0 +1,6 @@
+=== 30 x wait/signal tests, idle board
+passed runs: 30/30
+8 passed, 27 deselected in 1.48s
+=== 10 x full suite with a CPU hog (yes > /dev/null, same nice)
+passed runs: 10/10
+35 passed in 5.77s

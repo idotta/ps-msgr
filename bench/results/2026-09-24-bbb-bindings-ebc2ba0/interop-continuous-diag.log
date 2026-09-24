@@ -1,0 +1,34 @@
+=== writer py
+     40 ms  pollers spawned
+    103 ms  waiter sessions spawned
+    264 ms  py writer spawned
+   3217 ms  writer opened
+   3219 ms  first publish
+   7028 ms  last publish (writer's 2000 values at 1 kHz should take 2000 ms)
+   2536 ms  c poller ended: 0 values, summary {'reads': 17519, 'busy': 0}
+   2644 ms  cs poller ended: 0 values, summary {'reads': 16116, 'busy': 0}
+   5916 ms  py poller ended: 696 values, summary {'reads': 2010, 'busy': 0}
+=== writer c
+     37 ms  pollers spawned
+     97 ms  waiter sessions spawned
+    241 ms  c writer spawned
+    270 ms  writer opened
+    273 ms  first publish
+   2277 ms  last publish (writer's 2000 values at 1 kHz should take 2000 ms)
+   2519 ms  c poller ended: 145 values, summary {'reads': 12798, 'busy': 0}
+   2643 ms  cs poller ended: 166 values, summary {'reads': 7689, 'busy': 0}
+   5686 ms  py poller ended: 2 values, summary {'reads': 13447, 'busy': 0}
+=== writer cs
+     40 ms  pollers spawned
+    104 ms  waiter sessions spawned
+    255 ms  cs writer spawned
+    372 ms  writer opened
+    372 ms  first publish
+   2384 ms  last publish (writer's 2000 values at 1 kHz should take 2000 ms)
+   2527 ms  c poller ended: 126 values, summary {'reads': 14842, 'busy': 0}
+   2641 ms  cs poller ended: 115 values, summary {'reads': 9907, 'busy': 0}
+   5598 ms  py poller ended: 2 values, summary {'reads': 13738, 'busy': 0}
+=== agent startup alone (payload-layout, 10 runs)
+/home/debian/bbb-bindings/build/tests/interop_helper: # runs 10, failed 0, wall median 7.3 ms, max 7.4 ms, max RSS 1028 KiB
+/home/debian/bbb-bindings/cs/agent_cs/PsMsgr.InteropAgent: # runs 10, failed 0, wall median 20.3 ms, max 21.3 ms, max RSS 2580 KiB
+../../venv/bin/python agent_py.py: # runs 10, failed 0, wall median 714.3 ms, max 790.2 ms, max RSS 9900 KiB

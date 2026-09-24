@@ -29,3 +29,6 @@ as described in [`spec/README.md`](spec/README.md).
   writer works with any reader. The C examples build in-tree
   (`PSMSGR_BUILD_EXAMPLES`) or against an installed library.
   `examples/check.sh` runs them against each other in CI.
+- `bench/results/2026-09-24-bbb-bindings-ebc2ba0/`: first run of the Python
+  and C# bindings (Native AOT for `linux-arm`), the interop suite and the
+  examples on a BeagleBone Black.

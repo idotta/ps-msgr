@@ -1,0 +1,182 @@
+libpsmsgr.so.1: copy of the installed /usr/lib/arm-linux-gnueabihf/libpsmsgr.so.1.0.0 (cmp equal), next to the armhf-release tests/interop_helper
+ps_msgr from /home/debian/bbb-bindings/venv/lib/python3.13/site-packages/ps_msgr/__init__.py
+=== run 1
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.5, pluggy-1.6.0 -- /home/debian/bbb-bindings/repo/bindings/python/../../../venv/bin/python
+rootdir: /home/debian/bbb-bindings/repo/bindings/python
+configfile: pyproject.toml
+collecting ... collected 35 items
+
+tests/test_native.py::test_struct_layout[psmsgr_state_options-StateOptions] PASSED [  2%]
+tests/test_native.py::test_struct_layout[psmsgr_state_info-StateInfo] PASSED [  5%]
+tests/test_native.py::test_struct_layout[psmsgr_state_desc-StateDesc] PASSED [  8%]
+tests/test_native.py::test_constants PASSED                              [ 11%]
+tests/test_native.py::test_options_init_sets_struct_size PASSED          [ 14%]
+tests/test_native.py::test_version_check PASSED                          [ 17%]
+tests/test_native.py::test_import_fails_clearly_without_library PASSED   [ 20%]
+tests/test_state.py::test_create_then_reuse PASSED                       [ 22%]
+tests/test_state.py::test_directory_from_env PASSED                      [ 25%]
+tests/test_state.py::test_mismatch_and_recreate PASSED                   [ 28%]
+tests/test_state.py::test_second_writer_same_process PASSED              [ 31%]
+tests/test_state.py::test_second_writer_other_process PASSED             [ 34%]
+tests/test_state.py::test_lazy_reader_attaches_later PASSED              [ 37%]
+tests/test_state.py::test_read_results_and_sizes PASSED                  [ 40%]
+tests/test_state.py::test_publish_buffers PASSED                         [ 42%]
+tests/test_state.py::test_heartbeat_channel PASSED                       [ 45%]
+tests/test_state.py::test_receive_buffer_follows_capacity PASSED         [ 48%]
+tests/test_state.py::test_peek_timestamps PASSED                         [ 51%]
+tests/test_state.py::test_wait_wakes_on_publish PASSED                   [ 54%]
+tests/test_state.py::test_wait_timeouts PASSED                           [ 57%]
+tests/test_state.py::test_wait_follows_retire PASSED                     [ 60%]
+tests/test_state.py::test_wait_follows_unlink PASSED                     [ 62%]
+tests/test_state.py::test_wait_not_supported_without_notify PASSED       [ 65%]
+tests/test_state.py::test_wait_raises_keyboard_interrupt PASSED          [ 68%]
+tests/test_state.py::test_wait_sigint_to_main_thread PASSED              [ 71%]
+tests/test_state.py::test_wait_resumes_after_signal_handler PASSED       [ 74%]
+tests/test_state.py::test_writer_alive PASSED                            [ 77%]
+tests/test_state.py::test_attached_flag_once_per_attach PASSED           [ 80%]
+tests/test_state.py::test_unlink PASSED                                  [ 82%]
+tests/test_state.py::test_invalid_arguments PASSED                       [ 85%]
+tests/test_state.py::test_system_errors PASSED                           [ 88%]
+tests/test_state.py::test_format_error PASSED                            [ 91%]
+tests/test_state.py::test_errors PASSED                                  [ 94%]
+tests/test_state.py::test_use_after_close PASSED                         [ 97%]
+tests/test_state.py::test_unclosed_handles_warn PASSED                   [100%]
+
+============================= slowest 10 durations =============================
+0.57s call     tests/test_native.py::test_import_fails_clearly_without_library
+0.55s call     tests/test_state.py::test_second_writer_other_process
+0.31s call     tests/test_state.py::test_wait_resumes_after_signal_handler
+0.18s call     tests/test_state.py::test_wait_timeouts
+0.13s call     tests/test_state.py::test_wait_follows_unlink
+0.12s call     tests/test_state.py::test_wait_follows_retire
+0.11s call     tests/test_state.py::test_wait_sigint_to_main_thread
+0.11s call     tests/test_state.py::test_wait_raises_keyboard_interrupt
+0.10s call     tests/test_state.py::test_unclosed_handles_warn
+0.06s call     tests/test_state.py::test_wait_wakes_on_publish
+============================== 35 passed in 3.40s ==============================
+
+exit=0
+=== run 2
+real	0m6.249s
+user	0m4.604s
+sys	0m0.549s
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.5, pluggy-1.6.0 -- /home/debian/bbb-bindings/repo/bindings/python/../../../venv/bin/python
+rootdir: /home/debian/bbb-bindings/repo/bindings/python
+configfile: pyproject.toml
+collecting ... collected 35 items
+
+tests/test_native.py::test_struct_layout[psmsgr_state_options-StateOptions] PASSED [  2%]
+tests/test_native.py::test_struct_layout[psmsgr_state_info-StateInfo] PASSED [  5%]
+tests/test_native.py::test_struct_layout[psmsgr_state_desc-StateDesc] PASSED [  8%]
+tests/test_native.py::test_constants PASSED                              [ 11%]
+tests/test_native.py::test_options_init_sets_struct_size PASSED          [ 14%]
+tests/test_native.py::test_version_check PASSED                          [ 17%]
+tests/test_native.py::test_import_fails_clearly_without_library PASSED   [ 20%]
+tests/test_state.py::test_create_then_reuse PASSED                       [ 22%]
+tests/test_state.py::test_directory_from_env PASSED                      [ 25%]
+tests/test_state.py::test_mismatch_and_recreate PASSED                   [ 28%]
+tests/test_state.py::test_second_writer_same_process PASSED              [ 31%]
+tests/test_state.py::test_second_writer_other_process PASSED             [ 34%]
+tests/test_state.py::test_lazy_reader_attaches_later PASSED              [ 37%]
+tests/test_state.py::test_read_results_and_sizes PASSED                  [ 40%]
+tests/test_state.py::test_publish_buffers PASSED                         [ 42%]
+tests/test_state.py::test_heartbeat_channel PASSED                       [ 45%]
+tests/test_state.py::test_receive_buffer_follows_capacity PASSED         [ 48%]
+tests/test_state.py::test_peek_timestamps PASSED                         [ 51%]
+tests/test_state.py::test_wait_wakes_on_publish PASSED                   [ 54%]
+tests/test_state.py::test_wait_timeouts PASSED                           [ 57%]
+tests/test_state.py::test_wait_follows_retire PASSED                     [ 60%]
+tests/test_state.py::test_wait_follows_unlink PASSED                     [ 62%]
+tests/test_state.py::test_wait_not_supported_without_notify PASSED       [ 65%]
+tests/test_state.py::test_wait_raises_keyboard_interrupt PASSED          [ 68%]
+tests/test_state.py::test_wait_sigint_to_main_thread PASSED              [ 71%]
+tests/test_state.py::test_wait_resumes_after_signal_handler PASSED       [ 74%]
+tests/test_state.py::test_writer_alive PASSED                            [ 77%]
+tests/test_state.py::test_attached_flag_once_per_attach PASSED           [ 80%]
+tests/test_state.py::test_unlink PASSED                                  [ 82%]
+tests/test_state.py::test_invalid_arguments PASSED                       [ 85%]
+tests/test_state.py::test_system_errors PASSED                           [ 88%]
+tests/test_state.py::test_format_error PASSED                            [ 91%]
+tests/test_state.py::test_errors PASSED                                  [ 94%]
+tests/test_state.py::test_use_after_close PASSED                         [ 97%]
+tests/test_state.py::test_unclosed_handles_warn PASSED                   [100%]
+
+============================= slowest 10 durations =============================
+0.58s call     tests/test_native.py::test_import_fails_clearly_without_library
+0.55s call     tests/test_state.py::test_second_writer_other_process
+0.31s call     tests/test_state.py::test_wait_resumes_after_signal_handler
+0.18s call     tests/test_state.py::test_wait_timeouts
+0.13s call     tests/test_state.py::test_wait_follows_unlink
+0.11s call     tests/test_state.py::test_wait_follows_retire
+0.11s call     tests/test_state.py::test_wait_sigint_to_main_thread
+0.11s call     tests/test_state.py::test_wait_raises_keyboard_interrupt
+0.10s call     tests/test_state.py::test_unclosed_handles_warn
+0.06s call     tests/test_state.py::test_wait_wakes_on_publish
+============================== 35 passed in 3.37s ==============================
+exit=0
+=== run 3
+
+real	0m6.119s
+user	0m4.485s
+sys	0m0.640s
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.5, pluggy-1.6.0 -- /home/debian/bbb-bindings/repo/bindings/python/../../../venv/bin/python
+rootdir: /home/debian/bbb-bindings/repo/bindings/python
+configfile: pyproject.toml
+collecting ... collected 35 items
+
+tests/test_native.py::test_struct_layout[psmsgr_state_options-StateOptions] PASSED [  2%]
+tests/test_native.py::test_struct_layout[psmsgr_state_info-StateInfo] PASSED [  5%]
+tests/test_native.py::test_struct_layout[psmsgr_state_desc-StateDesc] PASSED [  8%]
+tests/test_native.py::test_constants PASSED                              [ 11%]
+tests/test_native.py::test_options_init_sets_struct_size PASSED          [ 14%]
+tests/test_native.py::test_version_check PASSED                          [ 17%]
+tests/test_native.py::test_import_fails_clearly_without_library PASSED   [ 20%]
+tests/test_state.py::test_create_then_reuse PASSED                       [ 22%]
+tests/test_state.py::test_directory_from_env PASSED                      [ 25%]
+tests/test_state.py::test_mismatch_and_recreate PASSED                   [ 28%]
+tests/test_state.py::test_second_writer_same_process PASSED              [ 31%]
+tests/test_state.py::test_second_writer_other_process PASSED             [ 34%]
+tests/test_state.py::test_lazy_reader_attaches_later PASSED              [ 37%]
+tests/test_state.py::test_read_results_and_sizes PASSED                  [ 40%]
+tests/test_state.py::test_publish_buffers PASSED                         [ 42%]
+tests/test_state.py::test_heartbeat_channel PASSED                       [ 45%]
+tests/test_state.py::test_receive_buffer_follows_capacity PASSED         [ 48%]
+tests/test_state.py::test_peek_timestamps PASSED                         [ 51%]
+tests/test_state.py::test_wait_wakes_on_publish PASSED                   [ 54%]
+tests/test_state.py::test_wait_timeouts PASSED                           [ 57%]
+tests/test_state.py::test_wait_follows_retire PASSED                     [ 60%]
+tests/test_state.py::test_wait_follows_unlink PASSED                     [ 62%]
+tests/test_state.py::test_wait_not_supported_without_notify PASSED       [ 65%]
+tests/test_state.py::test_wait_raises_keyboard_interrupt PASSED          [ 68%]
+tests/test_state.py::test_wait_sigint_to_main_thread PASSED              [ 71%]
+tests/test_state.py::test_wait_resumes_after_signal_handler PASSED       [ 74%]
+tests/test_state.py::test_writer_alive PASSED                            [ 77%]
+tests/test_state.py::test_attached_flag_once_per_attach PASSED           [ 80%]
+tests/test_state.py::test_unlink PASSED                                  [ 82%]
+tests/test_state.py::test_invalid_arguments PASSED                       [ 85%]
+tests/test_state.py::test_system_errors PASSED                           [ 88%]
+tests/test_state.py::test_format_error PASSED                            [ 91%]
+tests/test_state.py::test_errors PASSED                                  [ 94%]
+tests/test_state.py::test_use_after_close PASSED                         [ 97%]
+tests/test_state.py::test_unclosed_handles_warn PASSED                   [100%]
+
+============================= slowest 10 durations =============================
+0.57s call     tests/test_native.py::test_import_fails_clearly_without_library
+0.55s call     tests/test_state.py::test_second_writer_other_process
+0.31s call     tests/test_state.py::test_wait_resumes_after_signal_handler
+0.18s call     tests/test_state.py::test_wait_timeouts
+0.13s call     tests/test_state.py::test_wait_follows_unlink
+0.11s call     tests/test_state.py::test_wait_follows_retire
+0.11s call     tests/test_state.py::test_wait_sigint_to_main_thread
+0.11s call     tests/test_state.py::test_wait_raises_keyboard_interrupt
+0.10s call     tests/test_state.py::test_unclosed_handles_warn
+0.06s call     tests/test_state.py::test_wait_wakes_on_publish
+============================== 35 passed in 3.38s ==============================
+exit=0
+
+real	0m6.122s
+user	0m4.480s
+sys	0m0.647s
