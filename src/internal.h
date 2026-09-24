@@ -24,7 +24,8 @@ static inline uint64_t psmi_clock_ns(clockid_t clock)
 /* memcpy for the racy side of a seqlock (state-channel.md §5.4). Defined in
  * its own translation unit so that, without LTO, the compiler can neither
  * inline it nor move its accesses across the fences around the call site.
- * Annotated for ThreadSanitizer. */
+ * Needs no TSan annotation: each handle maps the file separately, so TSan
+ * never sees the writer's and a reader's copies as the same memory. */
 void psmi_seq_copy(void *dst, const void *src, size_t n);
 
 /* ---- test hooks ---------------------------------------------------------- */

@@ -207,8 +207,9 @@ recreates the channel under Python and C# readers.
 ### Sanitizers
 
 - ASan+UBSan on the unit and torture tests.
-- TSan with the payload copy annotated (see state-channel.md §5.4). Any
-  other report is a bug.
+- TSan on the unit and torture tests. Any report is a bug. TSan cannot see
+  the seqlock race itself, because each handle maps the file separately
+  (state-channel.md §5.4); the torture test covers that.
 
 ## Conventions
 

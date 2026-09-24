@@ -41,8 +41,8 @@ static uint32_t load_acquire(const uint32_t *p)
 
 /* The seqlock fences (§5.4). ThreadSanitizer does not model standalone
  * fences, and GCC warns about that (-Wtsan). The only accesses they order are
- * the racy copies, which psmi_seq_copy() already hides from TSan; everything
- * else synchronizes through the atomics themselves. */
+ * the racy copies, which TSan cannot see anyway (each handle maps the file
+ * separately); everything else synchronizes through the atomics themselves. */
 #if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 11
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtsan"

@@ -268,8 +268,14 @@ W.gen = (W.gen == UINT32_MAX) ? 1 : W.gen + 1;             // 0 is never a valid
 - The payload copy is a data race in the C11 sense, as in any seqlock. It is
   sound in practice because the fences are full compiler barriers and emit
   `dmb ish` on ARMv7. The implementation MUST keep the copy strictly between
-  the fences, e.g. an out-of-line copy routine, and MUST annotate the copy
-  for ThreadSanitizer.
+  the fences, e.g. an out-of-line copy routine.
+- ThreadSanitizer cannot see this race, so the copy needs no annotation.
+  TSan tracks memory by virtual address, and every handle maps the file
+  separately: writer and readers reach the same pages through different
+  addresses, even inside one process. If handles ever share a mapping
+  (e.g. a per-process mapping cache), TSan will see the copies, and they
+  must then be annotated. The seqlock itself is verified by the torture
+  test, not by TSan.
 
 ### 5.5 Close
 
