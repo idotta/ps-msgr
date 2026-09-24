@@ -18,8 +18,17 @@ The rules that apply to both:
   carries `PSMSGR_INFO_ATTACHED`, the binding calls `describe()` and
   reallocates the buffer if the capacity changed. Reads never allocate
   except for the returned copy (Python `bytes`, C# convenience overloads).
-- `PSMSGR_INFO_ATTACHED` is exposed as `StateInfo.attached` / `Attached`, so
-  applications can re-check `payload_type`.
+  - A result that doesn't fill the owned buffer (`peek`, reads into a
+    caller's buffer) only marks the buffer for that check at the next read
+    into it.
+  - If a read into the owned buffer still gets `PSMSGR_E_TOOSMALL`, the
+    binding calls `describe()`, resizes and retries (a few times, then
+    `PSMSGR_E_BUSY`).
+- `PSMSGR_INFO_ATTACHED` is exposed as `StateInfo.attached` / `Attached`
+  (and on Python's `Snapshot`), so applications can re-check `payload_type`.
+  Like the C flag it is reported once per attach. If the result that
+  carried it raises instead (`PSMSGR_E_TOOSMALL` from a read into a
+  caller's buffer), the next result reports it.
 - `PSMSGR_E_NODATA` is not an error: it maps to `None` / `false`. Every other
   negative code maps to an exception that carries the code and, for
   `PSMSGR_E_SYS`, the `errno`. `PSMSGR_E_BUSY` gets its own exception type
@@ -37,12 +46,42 @@ The rules that apply to both:
 
 - Python ≥ 3.11. The target (trixie) ships 3.13; the lower floor only
   exists so that development hosts with an older Python still work. No
-  runtime dependencies. `ctypes`, so it is a pure-Python wheel.
-- `ctypes` releases the GIL during foreign calls, so a blocking `wait`
-  doesn't stall other threads.
+  runtime dependencies. `ctypes`, so it is a pure-Python wheel, built with
+  setuptools.
+- Every C function is declared with explicit `argtypes` and `restype`, and
+  the three structs are mirrored as `ctypes.Structure`. Options are set up
+  with `psmsgr_state_options_init_sized(opt, sizeof(opt))`. The binding's
+  tests compare every size, offset and constant with a helper compiled from
+  the C headers (`tests/interop_helper.c`).
+- Loading: `ctypes` opens `$PSMSGR_LIBRARY` if set, else `libpsmsgr.so.1`.
+  A missing library, a missing symbol or an incompatible version raises
+  `ImportError` at import, naming the library and what is wrong.
+- The GIL: `wait` and the calls that do file system work (opening a
+  writer or a reader, `writer_alive`, `unlink`) release it, so a blocking
+  `wait` doesn't stall other threads. `publish`, `read`, `peek`,
+  `describe`, `now_ns` and `close` keep it (`ctypes.PyDLL`): releasing and
+  reacquiring the GIL would cost more than these calls, and with other busy
+  threads reacquiring can take a whole switch interval.
 - When `wait` gets `PSMSGR_E_INTR`, the binding returns to the interpreter
   so that pending signal handlers run (`KeyboardInterrupt` is raised
   normally), then retries with the remaining time, following PEP 475.
+  Signals reach Python handlers only in the main thread.
+- Timeouts are float seconds: `None` (or `math.inf`) waits indefinitely, `0`
+  polls once, and a positive value is rounded up to whole milliseconds per
+  call, so it never becomes a poll. Negative or NaN raises `ValueError`.
+- Integer arguments are checked against their C type (`uint32_t`) and
+  raise `ValueError` out of range, instead of being truncated by `ctypes`.
+  A channel name or directory with a NUL character raises `ValueError`. The
+  library validates everything else (`PSMSGR_E_INVAL`).
+- `publish` takes any C-contiguous buffer (`bytes`, `bytearray`, writable
+  `memoryview`, `array`, `ctypes.Structure`, …) without copying it first;
+  a read-only buffer that isn't `bytes`, or a non-contiguous one, is copied
+  once. `read_into` needs a writable C-contiguous buffer (`TypeError` or
+  `BufferError` otherwise) and writes the value to its start.
+- Handles close deterministically with `close()` or `with`. `__del__`
+  closes a forgotten handle and emits a `ResourceWarning`, like an unclosed
+  file. Calls on a closed handle raise `ValueError`. Like the C handles,
+  the objects are not thread-safe: use one per thread.
 
 ```python
 from ps_msgr import StateWriter, StateReader, Snapshot, StateInfo, now_ns, unlink
@@ -55,6 +94,8 @@ class StateWriter:                        # context manager
     def publish(self, data: bytes | bytearray | memoryview) -> int: ...  # -> generation
     @property
     def capacity(self) -> int: ...
+    @property
+    def closed(self) -> bool: ...
     def close(self) -> None: ...
 
 class StateReader:                        # context manager
@@ -66,22 +107,29 @@ class StateReader:                        # context manager
              timeout: float | None = None) -> bool: ...       # False on timeout
     def writer_alive(self) -> bool: ...
     def describe(self) -> ChannelDesc | None: ...
+    @property
+    def closed(self) -> bool: ...
     def close(self) -> None: ...
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class StateInfo:  generation: int; length: int; timestamp_ns: int; attached: bool
     # .age_ns property: now_ns() - timestamp_ns
 
-@dataclass(frozen=True)
-class Snapshot:   data: bytes; generation: int; timestamp_ns: int
+@dataclass(frozen=True, slots=True)
+class Snapshot:   data: bytes; generation: int; timestamp_ns: int; attached: bool
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ChannelDesc: capacity: int; slot_count: int; payload_type: int; notify: bool
 
 def now_ns() -> int: ...
-def unlink(name: str, *, directory: str | os.PathLike | None = None) -> bool: ...
+def unlink(name: str, *, directory: str | os.PathLike | None = None) -> bool: ...  # False: absent
 
-class PsMsgrError(OSError): code: int     # base; errno set for PSMSGR_E_SYS
+class ErrorCode(IntEnum): INVAL = -1; SYS = -2; ...  # mirrors PSMSGR_E_*
+
+class PsMsgrError(OSError):               # base; errno set for PSMSGR_E_SYS
+    code: int                             # an ErrorCode for known codes
+    def __init__(self, code: int, message: str | None = None,
+                 errno: int | None = None, filename: str | None = None) -> None: ...
 class WriterExistsError(PsMsgrError): ...
 class ChannelMismatchError(PsMsgrError): ...
 class ChannelFormatError(PsMsgrError): ...
@@ -89,8 +137,14 @@ class PayloadTooLargeError(PsMsgrError, ValueError): ...
 class ChannelBusyError(PsMsgrError): ...      # transient: retry
 ```
 
-`read_into` raises `PayloadTooLargeError` if `buf` is too small. Payload
-encoding is up to the application: `struct`, `ctypes.Structure`,
+- `filename` is the channel name. `strerror` is `os.strerror(errno)` for
+  `PSMSGR_E_SYS`, else `psmsgr_strerror(code)`. The exceptions pickle.
+- `PayloadTooLargeError` has code `TOOBIG` from `publish`, and `TOOSMALL`
+  from `read_into` when `buf` is too small.
+- Other codes, e.g. `INVAL`, or `NOTSUP` from `wait` on a channel without
+  notification, raise `PsMsgrError` itself.
+
+Payload encoding is up to the application: `struct`, `ctypes.Structure`,
 `numpy.frombuffer`, etc.
 
 ## C# — `PsMsgr`

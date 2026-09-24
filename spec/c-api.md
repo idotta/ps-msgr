@@ -201,20 +201,28 @@ int  psmsgr_state_unlink(const char *name, const char *dir);
 ## Usage (non-normative)
 
 ```c
+struct motor_status {
+    uint64_t sequence;
+    float    speed_rpm;
+    float    current_a;
+    float    temperature_c;
+};
+#define MOTOR_STATUS_V1 0x00010001u   /* schema 1, version 1 */
+
 /* writer */
 psmsgr_state_options o;
 psmsgr_state_options_init(&o);
-o.capacity     = sizeof(struct imu_sample);
-o.payload_type = IMU_SAMPLE_V1;
+o.capacity     = sizeof(struct motor_status);
+o.payload_type = MOTOR_STATUS_V1;
 
 psmsgr_state_writer *w;
-if (psmsgr_state_writer_open("imu", &o, &w) != PSMSGR_OK) { /* ... */ }
-struct imu_sample s = sample();
+if (psmsgr_state_writer_open("motor", &o, &w) != PSMSGR_OK) { /* ... */ }
+struct motor_status s = current_status();
 psmsgr_state_publish(w, &s, sizeof s, NULL);
 
 /* reader: consume only changes, detect a stale producer */
 psmsgr_state_reader *r;
-psmsgr_state_reader_open("imu", NULL, &r);
+psmsgr_state_reader_open("motor", NULL, &r);
 uint32_t seen = 0;
 for (;;) {
     psmsgr_state_info i;
