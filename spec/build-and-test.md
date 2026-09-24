@@ -24,6 +24,7 @@ csharp/
   PsMsgr.sln
   PsMsgr/PsMsgr.csproj
   PsMsgr.Tests/PsMsgr.Tests.csproj
+  PsMsgr.AotSmoke/            Native AOT smoke test (CI only)
 interop/                      cross-language tests (C ⇄ Python ⇄ C#)
 examples/                     one small writer/reader pair per language
 .github/workflows/
@@ -65,7 +66,8 @@ pytest and need the built C library (`PSMSGR_LIBRARY=<build>/libpsmsgr.so.1`).
 SDK-style projects. The library targets `netstandard2.1`. The test project
 must target a concrete runtime: the current .NET LTS, with xUnit. On CI, point
 `PSMSGR_LIBRARY` at the built library, which also exercises the `dlopen`
-preload path.
+preload path. `csharp/PsMsgr.AotSmoke/` is a console app used only by the
+Native AOT CI job.
 
 ## Tests
 
@@ -132,6 +134,7 @@ recreates the channel under Python and C# readers.
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, `time_t`). |
 | Python (x86-64) | Binding tests plus interop. |
 | C# (x86-64) | Binding tests plus interop on .NET LTS; a Mono smoke test of the `netstandard2.1` assembly. |
+| C# Native AOT | `dotnet publish -p:PublishAot=true` of a smoke-test app (writer + reader + wait) with IL2xxx/IL3xxx warnings as errors. Covers linux-x64 run natively and linux-arm cross-compiled and run under `qemu-arm`. Includes the `DirectPInvoke` static-link variant. |
 | CPack | Build the `.deb` for armhf and amd64. |
 
 ## On-target validation (before each release)
