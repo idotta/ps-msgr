@@ -56,7 +56,7 @@ static void fill_derived(unsigned char *p, uint32_t gen, uint32_t len)
 {
     uint32_t v = gen * 2654435761u;
     for (uint32_t k = 0; k < len; ++k) {
-        v    = v * 1103515245u + 12345u;
+        v = v * 1103515245u + 12345u;
         p[k] = (unsigned char)(v >> 24);
     }
 }
@@ -96,7 +96,7 @@ typedef struct reader_stats {
     uint64_t bad_len;   /* embedded length != info.length */
     uint64_t bad_order; /* generation or timestamp went backwards */
     uint64_t bad_rc;    /* any other result, or NODATA after a value */
-    int      last_bad_rc;
+    int last_bad_rc;
 } reader_stats;
 
 typedef struct run_cfg {
@@ -137,19 +137,19 @@ static void reader_loop(const run_cfg *cfg, reader_stats *st)
     unsigned char *buf = malloc(cfg->capacity);
     psmsgr_state_reader *r = open_reader(CHAN);
     if (buf == NULL || r == NULL) {
-        st->bad_rc      = 1;
+        st->bad_rc = 1;
         st->last_bad_rc = PSMSGR_E_SYS;
         free(buf);
         return;
     }
-    bool     seen = false;
+    bool seen = false;
     uint32_t prev_gen = 0;
     uint64_t prev_ts = 0, ops = 0;
     while (psmsgr_now_ns() < cfg->deadline_ns) {
         psmsgr_state_info info;
         bool peek = (++ops & 7u) == 0;
-        int  rc   = peek ? psmsgr_state_peek(r, &info)
-                         : psmsgr_state_read(r, buf, cfg->capacity, &info);
+        int rc =
+            peek ? psmsgr_state_peek(r, &info) : psmsgr_state_read(r, buf, cfg->capacity, &info);
         if (rc == PSMSGR_E_BUSY) {
             ++st->busy;
             continue;
@@ -165,9 +165,9 @@ static void reader_loop(const run_cfg *cfg, reader_stats *st)
             ++st->bad_gen;
         if (seen && ((int32_t)(info.generation - prev_gen) < 0 || info.timestamp_ns < prev_ts))
             ++st->bad_order;
-        seen     = true;
+        seen = true;
         prev_gen = info.generation;
-        prev_ts  = info.timestamp_ns;
+        prev_ts = info.timestamp_ns;
         if (peek) {
             ++st->peeks;
         } else {
@@ -180,9 +180,9 @@ static void reader_loop(const run_cfg *cfg, reader_stats *st)
 }
 
 typedef struct reader_thread {
-    pthread_t      thread;
+    pthread_t thread;
     const run_cfg *cfg;
-    reader_stats   stats;
+    reader_stats stats;
 } reader_thread;
 
 static void *reader_thread_main(void *arg)
@@ -194,7 +194,7 @@ static void *reader_thread_main(void *arg)
 
 typedef struct reader_proc {
     pid_t pid;
-    int   fd; /* read end: the child's reader_stats */
+    int fd; /* read end: the child's reader_stats */
 } reader_proc;
 
 /* Forked while the process is single-threaded. The child reports its stats
@@ -235,8 +235,7 @@ static bool reader_proc_finish(reader_proc *c, reader_stats *st)
         while (waitpid(c->pid, &status, 0) < 0 && errno == EINTR) {
         }
     }
-    return c->pid > 0 && n == (ssize_t)sizeof *st && WIFEXITED(status)
-           && WEXITSTATUS(status) == 0;
+    return c->pid > 0 && n == (ssize_t)sizeof *st && WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 /* ---- writer ------------------------------------------------------------------- */
@@ -244,8 +243,8 @@ static bool reader_proc_finish(reader_proc *c, reader_stats *st)
 typedef struct writer_stats {
     uint64_t publishes; /* publish or begin/commit */
     uint64_t aborts;
-    uint64_t errors;    /* failed call, or not the expected generation */
-    int      last_error;
+    uint64_t errors; /* failed call, or not the expected generation */
+    int last_error;
 } writer_stats;
 
 static void writer_error(writer_stats *st, int rc)
@@ -268,7 +267,7 @@ static void writer_loop(psmsgr_state_writer *w, const run_cfg *cfg, writer_stats
     uint32_t gen = UINT32_MAX - 100;
     psmi_writer_set_generation(w, gen);
     while (psmsgr_now_ns() < cfg->deadline_ns) {
-        uint64_t x   = rand_next(&rng);
+        uint64_t x = rand_next(&rng);
         uint32_t len = (uint32_t)(x % ((uint64_t)cfg->capacity + 1));
         uint32_t got = 0;
         int rc;
@@ -312,8 +311,8 @@ static void writer_loop(psmsgr_state_writer *w, const run_cfg *cfg, writer_stats
 typedef struct run_result {
     writer_stats w;
     reader_stats r[MAX_READERS]; /* threads first, then processes */
-    bool         proc_ok[MAX_READERS];
-    int          writer_open_rc;
+    bool proc_ok[MAX_READERS];
+    int writer_open_rc;
 } run_result;
 
 static uint64_t bad_reads(const reader_stats *s)
@@ -337,8 +336,7 @@ static void run(run_cfg *cfg, uint64_t ns, run_result *res)
     bool started[READER_THREADS] = { false };
     for (unsigned i = 0; i < cfg->threads; ++i) {
         threads[i].cfg = cfg;
-        started[i] =
-            pthread_create(&threads[i].thread, NULL, reader_thread_main, &threads[i]) == 0;
+        started[i] = pthread_create(&threads[i].thread, NULL, reader_thread_main, &threads[i]) == 0;
     }
 
     psmsgr_state_writer *w = NULL;
@@ -351,7 +349,7 @@ static void run(run_cfg *cfg, uint64_t ns, run_result *res)
             pthread_join(threads[i].thread, NULL);
             res->r[i] = threads[i].stats;
         } else {
-            res->r[i].bad_rc      = 1;
+            res->r[i].bad_rc = 1;
             res->r[i].last_bad_rc = PSMSGR_E_SYS;
         }
         res->proc_ok[i] = true;
@@ -364,7 +362,8 @@ static void run(run_cfg *cfg, uint64_t ns, run_result *res)
 static void report(const run_cfg *cfg, const run_result *res, double seconds)
 {
     print_message("slots %" PRIu32 ", capacity %" PRIu32 ": %.1f s, %" PRIu64 " publishes, %" PRIu64
-                  " aborts\n", cfg->slots, cfg->capacity, seconds, res->w.publishes, res->w.aborts);
+                  " aborts\n",
+                  cfg->slots, cfg->capacity, seconds, res->w.publishes, res->w.aborts);
     for (unsigned i = 0; i < cfg->threads + cfg->procs; ++i) {
         const reader_stats *s = &res->r[i];
         uint64_t attempts = s->reads + s->peeks + s->busy;
@@ -380,8 +379,9 @@ static void report(const run_cfg *cfg, const run_result *res, double seconds)
 
 static void torture(uint32_t slots, uint32_t capacity)
 {
-    run_cfg cfg = { .slots = slots, .capacity = capacity, .threads = READER_THREADS,
-                    .procs = READER_PROCS };
+    run_cfg cfg = {
+        .slots = slots, .capacity = capacity, .threads = READER_THREADS, .procs = READER_PROCS
+    };
     run_result res;
     run(&cfg, duration_ns, &res);
     report(&cfg, &res, (double)duration_ns / 1e9);
@@ -389,8 +389,8 @@ static void torture(uint32_t slots, uint32_t capacity)
     assert_rc(res.writer_open_rc, PSMSGR_OK);
     if (res.w.errors != 0)
         print_message("writer: %s\n", res.w.last_error != PSMSGR_OK
-                                           ? psmsgr_strerror(res.w.last_error)
-                                           : "unexpected generation");
+                                          ? psmsgr_strerror(res.w.last_error)
+                                          : "unexpected generation");
     assert_uint_equal(res.w.errors, 0);
     assert_uint_not_equal(res.w.publishes, 0);
     for (unsigned i = 0; i < cfg.threads + cfg.procs; ++i) {
@@ -400,10 +400,10 @@ static void torture(uint32_t slots, uint32_t capacity)
     }
 }
 
-#define VARIANT(slots, cap, suffix)                                  \
-    static void torture_##slots##_slots_##suffix(void **state)       \
-    {                                                                \
-        torture(slots, cap);                                         \
+#define VARIANT(slots, cap, suffix)                            \
+    static void torture_##slots##_slots_##suffix(void **state) \
+    {                                                          \
+        torture(slots, cap);                                   \
     }
 
 VARIANT(2, 16, 16b)
@@ -437,8 +437,9 @@ static void torn_reads_are_detected(void **state)
     } while (data + gen + len == 0 && elapsed_ms(start) < 30000 && res.writer_open_rc == PSMSGR_OK);
     psmi_test_skip_seq_recheck = false;
 
-    print_message("seq recheck disabled: %" PRIu64 " reads in %" PRIu64 " rounds, torn: data %"
-                  PRIu64 ", gen %" PRIu64 ", len %" PRIu64 "\n", reads, rounds, data, gen, len);
+    print_message("seq recheck disabled: %" PRIu64 " reads in %" PRIu64
+                  " rounds, torn: data %" PRIu64 ", gen %" PRIu64 ", len %" PRIu64 "\n",
+                  reads, rounds, data, gen, len);
     assert_rc(res.writer_open_rc, PSMSGR_OK);
     assert_uint_not_equal(data + gen + len, 0);
 }
@@ -447,7 +448,7 @@ int main(void)
 {
     const char *env = getenv("PSMSGR_TORTURE_SECONDS");
     if (env != NULL && env[0] != '\0') {
-        char  *end;
+        char *end;
         double s = strtod(env, &end);
         if (*end != '\0' || !(s > 0 && s < 1e6)) {
             fprintf(stderr, "PSMSGR_TORTURE_SECONDS: not a number of seconds: %s\n", env);
@@ -458,12 +459,8 @@ int main(void)
     crc32_init();
 
     const struct CMUnitTest tests[] = {
-        TEST(torture_2_slots_16b),
-        TEST(torture_2_slots_4k),
-        TEST(torture_2_slots_1m),
-        TEST(torture_3_slots_16b),
-        TEST(torture_3_slots_4k),
-        TEST(torture_3_slots_1m),
+        TEST(torture_2_slots_16b),     TEST(torture_2_slots_4k), TEST(torture_2_slots_1m),
+        TEST(torture_3_slots_16b),     TEST(torture_3_slots_4k), TEST(torture_3_slots_1m),
         TEST(torn_reads_are_detected),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

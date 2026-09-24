@@ -9,6 +9,7 @@ wrappers under `bindings/`.
 
 ```
 README.md
+CHANGELOG.md
 CMakeLists.txt                libpsmsgr
 CMakePresets.json
 cmake/                        toolchain file, package config, ABI check
@@ -52,7 +53,8 @@ the same image.
     current API, so the image builds the upstream release (pinned SHA-256)
     as a static library for the host and for armhf. Test binaries therefore
     need no cmocka at run time, on the board either.
-  - `clang` (second compiler, sanitizers)
+  - `clang` (second compiler, sanitizers) and `clang-format` (the formatting
+    reference)
   - `python3`, the .NET SDK, and `mono-runtime` if trixie still ships it.
     Otherwise the Mono smoke test uses the Mono project's packages.
 - **Two targets:**
@@ -260,7 +262,11 @@ recreates the channel under Python and C# readers.
 
 - Every source file starts with `SPDX-License-Identifier: Apache-2.0`.
 - Formatting and linting are enforced in CI: `.clang-format` for C, `ruff`
-  for Python, `.editorconfig` plus `dotnet format` for C#.
+  for Python, `.editorconfig` plus `dotnet format` for C#. `.editorconfig`
+  also sets encoding, line endings and indentation for every other file.
+- The C check uses the build container's `clang-format`, because releases
+  format differently. To reformat the tree:
+  `docker/run.sh sh -c 'git ls-files -z "*.c" "*.h" "*.cpp" | xargs -0 clang-format -i'`.
 - User-visible changes go into `CHANGELOG.md` (Keep a Changelog format).
 - C header layouts are pinned with `_Static_assert(offsetof(...))`, matching
   the offset tables in state-channel.md.
@@ -270,6 +276,7 @@ recreates the channel under Python and C# readers.
 | Job | Purpose |
 |---|---|
 | x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. All jobs run in the build container. |
+| Format | `clang-format --dry-run --Werror` on the C and C++ sources, in the build container. |
 | AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. |
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, 64-bit `time_t`) plus the `libatomic` check. |
 | Python (x86-64) | Binding tests plus interop. |

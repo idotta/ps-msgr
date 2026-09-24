@@ -69,22 +69,28 @@ static inline const char *chan_path(const char *name, const char *suffix)
     return b;
 }
 
-static inline const char *data_path(const char *name) { return chan_path(name, ".state"); }
-static inline const char *lock_path(const char *name) { return chan_path(name, ".lock"); }
+static inline const char *data_path(const char *name)
+{
+    return chan_path(name, ".state");
+}
+static inline const char *lock_path(const char *name)
+{
+    return chan_path(name, ".lock");
+}
 
 static inline psmsgr_state_options make_opts(uint32_t capacity, uint32_t slots, uint32_t flags)
 {
     psmsgr_state_options o;
     psmsgr_state_options_init(&o);
-    o.capacity   = capacity;
+    o.capacity = capacity;
     o.slot_count = slots;
-    o.flags      = flags;
-    o.dir        = test_dir;
+    o.flags = flags;
+    o.dir = test_dir;
     return o;
 }
 
 static inline int open_writer(const char *name, uint32_t capacity, uint32_t slots, uint32_t flags,
-                       psmsgr_state_writer **w)
+                              psmsgr_state_writer **w)
 {
     psmsgr_state_options o = make_opts(capacity, slots, flags);
     return psmsgr_state_writer_open(name, &o, w);
@@ -113,7 +119,8 @@ static inline uint32_t gen_after(uint32_t gen, uint32_t n)
 }
 
 /* Reads the latest value as a string; returns the read's result code. */
-static inline int read_str(psmsgr_state_reader *r, char *buf, uint32_t size, psmsgr_state_info *info)
+static inline int read_str(psmsgr_state_reader *r, char *buf, uint32_t size,
+                           psmsgr_state_info *info)
 {
     int rc = psmsgr_state_read(r, buf, size - 1, info);
     buf[rc == PSMSGR_OK ? info->length : 0] = '\0';
@@ -181,7 +188,7 @@ static inline uint64_t elapsed_ms(uint64_t since_ns)
 
 typedef struct child {
     pid_t pid;
-    int   fd; /* read end: the child's result */
+    int fd; /* read end: the child's result */
 } child;
 
 /* Runs fn in a child, which reports its result and then waits to be killed.
@@ -231,7 +238,7 @@ static inline void child_kill(child *c)
     if (c->fd >= 0)
         close(c->fd);
     c->pid = -1;
-    c->fd  = -1;
+    c->fd = -1;
 }
 
 #endif /* PSMSGR_STATE_UTIL_H */

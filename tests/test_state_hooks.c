@@ -48,7 +48,7 @@ static void unlink_and_restart(void)
     psmi_test_lock_opened = NULL; /* one shot; the calls below lock too */
     psmsgr_state_writer_close(hook_a);
     hook_unlink_rc = psmsgr_state_unlink(CHAN, test_dir);
-    hook_c_rc      = open_writer(CHAN, 8, 2, 0, &hook_c);
+    hook_c_rc = open_writer(CHAN, 8, 2, 0, &hook_c);
 }
 
 static void unlink_racing_open_never_gives_two_writers(void **state)

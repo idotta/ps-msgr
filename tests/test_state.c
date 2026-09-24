@@ -26,7 +26,7 @@ static void names_are_validated(void **state)
         assert_rc(psmsgr_state_unlink(good[i], test_dir), PSMSGR_E_NODATA);
     }
 
-    longest[PSMSGR_NAME_MAX]     = 'n';
+    longest[PSMSGR_NAME_MAX] = 'n';
     longest[PSMSGR_NAME_MAX + 1] = '\0';
     const char *bad[] = { "", ".x", "..", "a/b", "a b", "a\n", "\xc3\xa4", "a*", longest, NULL };
     for (size_t i = 0; i < sizeof bad / sizeof *bad; ++i) {
@@ -81,8 +81,8 @@ static void options_defaults_and_limits(void **state)
     /* Only the fields covered by struct_size are read. */
     o = make_opts(8, 2, 0);
     o.payload_type = 77;
-    o.struct_size  = (uint32_t)offsetof(psmsgr_state_options, payload_type);
-    o.dir          = NULL; /* not covered either: the default applies */
+    o.struct_size = (uint32_t)offsetof(psmsgr_state_options, payload_type);
+    o.dir = NULL; /* not covered either: the default applies */
     setenv("PSMSGR_DIR", test_dir, 1);
     assert_rc(psmsgr_state_writer_open("short", &o, &w), PSMSGR_OK);
     unsetenv("PSMSGR_DIR");
@@ -118,7 +118,7 @@ static void options_init_sized(void **state)
     for (size_t i = sizeof *o; i < sizeof buf; ++i)
         assert_uint_equal(buf[i], 0);
     o->capacity = 8;
-    o->dir      = test_dir;
+    o->dir = test_dir;
     psmsgr_state_writer *w = NULL;
     assert_rc(psmsgr_state_writer_open(CHAN, o, &w), PSMSGR_OK);
     psmsgr_state_writer_close(w);
@@ -155,7 +155,7 @@ static void create_then_reuse(void **state)
     psmsgr_state_writer *w = NULL;
     psmsgr_state_options o = make_opts(16, 3, 0);
     o.payload_type = 0x1234;
-    o.mode         = 0640;
+    o.mode = 0640;
     assert_rc(psmsgr_state_writer_open(CHAN, &o, &w), PSMSGR_OK);
 
     struct stat st;
@@ -360,7 +360,7 @@ static void crash_mid_publish(void **state)
 
     /* Leftovers of an interrupted create. Only exact tmp names are ours:
      * the longer ones belong to a channel named "chan.state.tmp.AbC123". */
-    const char *tmp   = chan_path(CHAN, ".state.tmp.AbC123");
+    const char *tmp = chan_path(CHAN, ".state.tmp.AbC123");
     const char *other = chan_path(CHAN, ".state.tmp.AbC123.state");
     const char *short_ = chan_path(CHAN, ".state.tmp.abc");
     const char *files[] = { tmp, other, short_ };
@@ -445,7 +445,7 @@ static void read_results_and_sizes(void **state)
     assert_uint_equal(info.length, 8);
     assert_uint_equal(info.generation, gen);
     assert_true(info.flags & PSMSGR_INFO_ATTACHED); /* TOOSMALL is a result too */
-    assert_uint_equal(buf[0], 0xAA); /* nothing copied */
+    assert_uint_equal(buf[0], 0xAA);                /* nothing copied */
     assert_rc(psmsgr_state_read(r, buf, 8, &info), PSMSGR_OK);
     assert_uint_equal(info.length, 8);
     assert_memory_equal(buf, "12345678", 8);
@@ -613,12 +613,12 @@ static void peek_timestamps(void **state)
  * waiter_start and waiter_join: a failed assertion leaves the test function,
  * and the thread would go on writing to `wt` in its dead stack frame. */
 typedef struct waiter {
-    pthread_t            thread;
+    pthread_t thread;
     psmsgr_state_reader *r;
-    uint32_t             last;
-    int32_t              timeout_ms;
-    int                  rc;
-    int                  done; /* atomic */
+    uint32_t last;
+    int32_t timeout_ms;
+    int rc;
+    int done; /* atomic */
 } waiter;
 
 static void *waiter_main(void *arg)
@@ -660,7 +660,7 @@ static void wait_wakes_on_publish(void **state)
     waiter wt;
     assert_int_equal(waiter_start(&wt, r, gen, 10000), 0);
     sleep_ms(50); /* likely blocked by now; the test holds either way */
-    int rc_pub  = publish_str(w, "b", NULL);
+    int rc_pub = publish_str(w, "b", NULL);
     int rc_wait = waiter_join(&wt);
     assert_rc(rc_pub, PSMSGR_OK);
     assert_rc(rc_wait, PSMSGR_OK);
@@ -729,12 +729,12 @@ static void wait_follows_retire(void **state)
     waiter wt;
     assert_int_equal(waiter_start(&wt, r, gen, 10000), 0);
     sleep_ms(50); /* likely blocked by now; the test holds either way */
-    int  rc_open  = open_writer(CHAN, 16, 2, PSMSGR_STATE_RECREATE, &w);
+    int rc_open = open_writer(CHAN, 16, 2, PSMSGR_STATE_RECREATE, &w);
     bool notified = retired_and_notified(old_fd, 1);
     close(old_fd);
     sleep_ms(50);
-    int early   = __atomic_load_n(&wt.done, __ATOMIC_ACQUIRE); /* the retire alone: no return */
-    int rc_pub  = rc_open == PSMSGR_OK ? publish_str(w, "b", NULL) : rc_open;
+    int early = __atomic_load_n(&wt.done, __ATOMIC_ACQUIRE); /* the retire alone: no return */
+    int rc_pub = rc_open == PSMSGR_OK ? publish_str(w, "b", NULL) : rc_open;
     int rc_wait = waiter_join(&wt);
     assert_rc(rc_open, PSMSGR_OK);
     assert_true(notified);
@@ -764,15 +764,15 @@ static void wait_follows_unlink(void **state)
     waiter wt;
     assert_int_equal(waiter_start(&wt, r, gen, 10000), 0);
     sleep_ms(50); /* likely blocked by now; the test holds either way */
-    int  rc_unlink = psmsgr_state_unlink(CHAN, test_dir);
-    bool gone      = access(data_path(CHAN), F_OK) != 0 && access(lock_path(CHAN), F_OK) != 0;
-    bool notified  = retired_and_notified(old_fd, 1);
+    int rc_unlink = psmsgr_state_unlink(CHAN, test_dir);
+    bool gone = access(data_path(CHAN), F_OK) != 0 && access(lock_path(CHAN), F_OK) != 0;
+    bool notified = retired_and_notified(old_fd, 1);
     close(old_fd);
     sleep_ms(50);
-    int early   = __atomic_load_n(&wt.done, __ATOMIC_ACQUIRE);
+    int early = __atomic_load_n(&wt.done, __ATOMIC_ACQUIRE);
     int rc_open = open_writer(CHAN, 8, 2, 0, &w);
     uint32_t new_gen = 0;
-    int rc_pub  = rc_open == PSMSGR_OK ? publish_str(w, "c", &new_gen) : rc_open;
+    int rc_pub = rc_open == PSMSGR_OK ? publish_str(w, "c", &new_gen) : rc_open;
     int rc_wait = waiter_join(&wt); /* waits for last = gen: the new file must not reuse it */
     assert_rc(rc_unlink, PSMSGR_OK);
     assert_true(gone);
@@ -1163,9 +1163,27 @@ static void fuzz_header(void **state)
     assert_rc(expected_result(valid, sizeof valid), PSMSGR_OK);
 
     static const uint32_t extremes[] = {
-        0, 1, 2, 3, 15, 16, 17, 31, 32, 33, 63, 64, 127, 128, 129,
-        PSMSGR_STATE_MAX_CAPACITY, PSMSGR_STATE_MAX_CAPACITY + 1,
-        0x7FFFFFFFu, 0x80000000u, 0xFFFFFFFEu, 0xFFFFFFFFu,
+        0,
+        1,
+        2,
+        3,
+        15,
+        16,
+        17,
+        31,
+        32,
+        33,
+        63,
+        64,
+        127,
+        128,
+        129,
+        PSMSGR_STATE_MAX_CAPACITY,
+        PSMSGR_STATE_MAX_CAPACITY + 1,
+        0x7FFFFFFFu,
+        0x80000000u,
+        0xFFFFFFFEu,
+        0xFFFFFFFFu,
     };
     static const size_t fields[] = { 0, 8, 12, 16, 20, 24, 40 };
     unsigned char file[sizeof valid];
@@ -1188,9 +1206,7 @@ static void fuzz_header(void **state)
             memcpy(file + 4 + 2 * (rnd() % 2), &v, sizeof v);
             break;
         }
-        case 3: /* truncated */
-            len = rnd() % sizeof file;
-            break;
+        case 3:  len = rnd() % sizeof file; break; /* truncated */
         default: { /* payload length of the latest slot beyond capacity */
             uint32_t latest, v = 41 + rnd() % 1000;
             memcpy(&latest, file + 40, sizeof latest);
@@ -1217,7 +1233,7 @@ static void fuzz_header(void **state)
             assert_rc(rc_read, expect);
         if (rc_desc != PSMSGR_OK)
             assert_rc(rc_desc, PSMSGR_E_FORMAT);
-        assert_rc(rc_wait, expect == PSMSGR_OK       ? PSMSGR_OK
+        assert_rc(rc_wait, expect == PSMSGR_OK         ? PSMSGR_OK
                            : expect == PSMSGR_E_FORMAT ? PSMSGR_E_FORMAT
                                                        : PSMSGR_E_TIMEOUT);
 
@@ -1258,7 +1274,8 @@ static int enospc_child(void)
     if (unshare(CLONE_NEWUSER | CLONE_NEWNS) != 0)
         return 77;
     snprintf(map, sizeof map, "0 %u 1", (unsigned)uid);
-    if (write_proc("/proc/self/setgroups", "deny") != 0 || write_proc("/proc/self/uid_map", map) != 0)
+    if (write_proc("/proc/self/setgroups", "deny") != 0 ||
+        write_proc("/proc/self/uid_map", map) != 0)
         return 77;
     snprintf(map, sizeof map, "0 %u 1", (unsigned)gid);
     if (write_proc("/proc/self/gid_map", map) != 0)

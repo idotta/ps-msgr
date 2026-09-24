@@ -94,7 +94,7 @@ static void futex_wake_all(uint32_t *addr)
 static int futex_wait(const uint32_t *addr, uint32_t expected, uint64_t timeout_ns)
 {
     struct __kernel_timespec ts = {
-        .tv_sec  = (__kernel_time64_t)(timeout_ns / 1000000000u),
+        .tv_sec = (__kernel_time64_t)(timeout_ns / 1000000000u),
         .tv_nsec = (long long)(timeout_ns % 1000000000u),
     };
     return (int)syscall(PSMI_SYS_FUTEX, addr, FUTEX_WAIT, expected, &ts, NULL, 0);
@@ -120,9 +120,9 @@ static bool name_valid(const char *name)
 
 /* §2. The directory is resolved once, when a handle opens. */
 typedef struct paths {
-    char       *dir;
-    char       *data;      /* <dir>/psmsgr.<name>.state */
-    char       *lock;      /* <dir>/psmsgr.<name>.lock  */
+    char *dir;
+    char *data;            /* <dir>/psmsgr.<name>.state */
+    char *lock;            /* <dir>/psmsgr.<name>.lock  */
     const char *data_base; /* psmsgr.<name>.state, inside data */
 } paths;
 
@@ -162,10 +162,8 @@ static void paths_free(paths *p)
 /* `h` is a private copy, so the values checked are the values used. */
 static bool header_valid(const psmi_header *h, uint64_t file_bytes)
 {
-    return h->magic == PSMI_MAGIC &&
-           h->version_major == PSMI_VERSION_MAJOR &&
-           h->header_size == PSMI_HEADER_SIZE &&
-           h->slot_header_size == PSMI_SLOT_HEADER_SIZE &&
+    return h->magic == PSMI_MAGIC && h->version_major == PSMI_VERSION_MAJOR &&
+           h->header_size == PSMI_HEADER_SIZE && h->slot_header_size == PSMI_SLOT_HEADER_SIZE &&
            h->slot_count >= PSMI_MIN_SLOTS && h->slot_count <= PSMI_MAX_SLOTS &&
            h->capacity <= PSMSGR_STATE_MAX_CAPACITY &&
            h->slot_stride == psmi_slot_stride(h->capacity) &&
@@ -299,9 +297,9 @@ void psmsgr_state_options_init_sized(psmsgr_state_options *opt, uint32_t size)
         return;
     const psmsgr_state_options d = {
         .struct_size = size,
-        .capacity    = 0,
-        .slot_count  = PSMSGR_STATE_DEFAULT_SLOTS,
-        .mode        = 0644,
+        .capacity = 0,
+        .slot_count = PSMSGR_STATE_DEFAULT_SLOTS,
+        .mode = 0644,
     };
     if (size <= sizeof d) {
         memcpy(opt, &d, size);
@@ -312,7 +310,7 @@ void psmsgr_state_options_init_sized(psmsgr_state_options *opt, uint32_t size)
 }
 
 #define OPT_HAS(opt, field) \
-    ((opt)->struct_size >= offsetof(psmsgr_state_options, field) + sizeof (opt)->field)
+    ((opt)->struct_size >= offsetof(psmsgr_state_options, field) + sizeof(opt)->field)
 
 /* Reads the fields the caller's struct_size covers; NULL means defaults. */
 static int load_options(const psmsgr_state_options *opt, psmsgr_state_options *o)
@@ -321,16 +319,21 @@ static int load_options(const psmsgr_state_options *opt, psmsgr_state_options *o
     if (opt != NULL) {
         if (opt->struct_size == 0)
             return PSMSGR_E_INVAL; /* not initialized */
-        if (OPT_HAS(opt, capacity))     o->capacity     = opt->capacity;
-        if (OPT_HAS(opt, slot_count))   o->slot_count   = opt->slot_count;
-        if (OPT_HAS(opt, payload_type)) o->payload_type = opt->payload_type;
-        if (OPT_HAS(opt, mode))         o->mode         = opt->mode;
-        if (OPT_HAS(opt, flags))        o->flags        = opt->flags;
-        if (OPT_HAS(opt, dir))          o->dir          = opt->dir;
+        if (OPT_HAS(opt, capacity))
+            o->capacity = opt->capacity;
+        if (OPT_HAS(opt, slot_count))
+            o->slot_count = opt->slot_count;
+        if (OPT_HAS(opt, payload_type))
+            o->payload_type = opt->payload_type;
+        if (OPT_HAS(opt, mode))
+            o->mode = opt->mode;
+        if (OPT_HAS(opt, flags))
+            o->flags = opt->flags;
+        if (OPT_HAS(opt, dir))
+            o->dir = opt->dir;
     }
-    if (o->capacity > PSMSGR_STATE_MAX_CAPACITY ||
-        o->slot_count < PSMI_MIN_SLOTS || o->slot_count > PSMI_MAX_SLOTS ||
-        (o->mode & ~07777u) != 0 ||
+    if (o->capacity > PSMSGR_STATE_MAX_CAPACITY || o->slot_count < PSMI_MIN_SLOTS ||
+        o->slot_count > PSMI_MAX_SLOTS || (o->mode & ~07777u) != 0 ||
         (o->flags & ~(uint32_t)(PSMSGR_STATE_RECREATE | PSMSGR_STATE_NO_NOTIFY)) != 0 ||
         (o->dir != NULL && o->dir[0] == '\0'))
         return PSMSGR_E_INVAL;
@@ -341,16 +344,16 @@ static int load_options(const psmsgr_state_options *opt, psmsgr_state_options *o
 
 struct psmsgr_state_writer {
     psmi_header *hdr;
-    size_t       map_size;
-    uint32_t     slot_count;
-    uint32_t     slot_stride;
-    uint32_t     capacity;
-    bool         notify;
-    uint32_t     latest;    /* W.latest: last committed slot, or NONE */
-    uint32_t     gen;       /* generation of the next publish */
-    uint32_t     open_slot; /* slot of an open begin, or NONE */
-    uint32_t     open_seq;  /* its (even) seq before the begin */
-    int          lock_fd;
+    size_t map_size;
+    uint32_t slot_count;
+    uint32_t slot_stride;
+    uint32_t capacity;
+    bool notify;
+    uint32_t latest;    /* W.latest: last committed slot, or NONE */
+    uint32_t gen;       /* generation of the next publish */
+    uint32_t open_slot; /* slot of an open begin, or NONE */
+    uint32_t open_seq;  /* its (even) seq before the begin */
+    int lock_fd;
 };
 
 static psmi_slot *writer_slot(const psmsgr_state_writer *w, uint32_t i)
@@ -396,15 +399,15 @@ static uint32_t carried_generation(const psmi_header *map, uint32_t stride, uint
 static void writer_attach(psmsgr_state_writer *w, psmi_header *map, size_t map_size,
                           const psmi_header *geom, uint32_t latest, uint32_t gen)
 {
-    w->hdr         = map;
-    w->map_size    = map_size;
-    w->slot_count  = geom->slot_count;
+    w->hdr = map;
+    w->map_size = map_size;
+    w->slot_count = geom->slot_count;
     w->slot_stride = geom->slot_stride;
-    w->capacity    = geom->capacity;
-    w->notify      = (geom->config_flags & PSMI_CONFIG_NO_NOTIFY) == 0;
-    w->latest      = latest;
-    w->gen         = gen;
-    w->open_slot   = PSMI_LATEST_NONE;
+    w->capacity = geom->capacity;
+    w->notify = (geom->config_flags & PSMI_CONFIG_NO_NOTIFY) == 0;
+    w->latest = latest;
+    w->gen = gen;
+    w->open_slot = PSMI_LATEST_NONE;
 }
 
 /* §5.2: builds a complete file under a temporary name and renames it into
@@ -445,17 +448,17 @@ static int create_file(psmsgr_state_writer *w, const psmsgr_state_options *o, co
     /* The file is fresh and therefore zero: slots, reserved bytes, state
      * and notify need no stores. */
     psmi_header *h = map;
-    h->magic               = PSMI_MAGIC;
-    h->version_major       = PSMI_VERSION_MAJOR;
-    h->version_minor       = PSMI_VERSION_MINOR;
-    h->header_size         = PSMI_HEADER_SIZE;
-    h->slot_header_size    = PSMI_SLOT_HEADER_SIZE;
-    h->slot_count          = o->slot_count;
-    h->slot_stride         = stride;
-    h->capacity            = o->capacity;
-    h->payload_type        = o->payload_type;
-    h->config_flags        = config_flags_of(o);
-    h->latest              = PSMI_LATEST_NONE;
+    h->magic = PSMI_MAGIC;
+    h->version_major = PSMI_VERSION_MAJOR;
+    h->version_minor = PSMI_VERSION_MINOR;
+    h->header_size = PSMI_HEADER_SIZE;
+    h->slot_header_size = PSMI_SLOT_HEADER_SIZE;
+    h->slot_count = o->slot_count;
+    h->slot_stride = stride;
+    h->capacity = o->capacity;
+    h->payload_type = o->payload_type;
+    h->config_flags = config_flags_of(o);
+    h->latest = PSMI_LATEST_NONE;
     h->created_realtime_ns = psmi_clock_ns(CLOCK_REALTIME);
 
     if (rename(tmp, p->data) != 0)
@@ -498,7 +501,8 @@ static int open_data(psmsgr_state_writer *w, const psmsgr_state_options *o, cons
     /* Map the whole file if it is valid, else just the header if it has our
      * magic (so it can be retired), else nothing. */
     size_t map_size = valid ? (size_t)psmi_file_size(h.slot_count, h.slot_stride)
-                    : (rc == PSMSGR_OK && h.magic == PSMI_MAGIC) ? sizeof h : 0;
+                      : (rc == PSMSGR_OK && h.magic == PSMI_MAGIC) ? sizeof h
+                                                                   : 0;
     psmi_header *old = NULL;
     if (map_size != 0) {
         void *m = mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -611,7 +615,7 @@ static unsigned char *begin_slot(psmsgr_state_writer *w)
     __atomic_store_n(&s->seq, q + 1, __ATOMIC_RELAXED);
     seq_fence_release();
     w->open_slot = i;
-    w->open_seq  = q;
+    w->open_seq = q;
     return (unsigned char *)s + PSMI_SLOT_HEADER_SIZE;
 }
 
@@ -621,12 +625,12 @@ static uint32_t commit_slot(psmsgr_state_writer *w, uint32_t len)
     uint32_t i = w->open_slot;
     psmi_slot *s = writer_slot(w, i);
     uint32_t gen = w->gen;
-    s->generation   = gen;
-    s->length       = len;
+    s->generation = gen;
+    s->length = len;
     s->timestamp_ns = psmi_clock_ns(CLOCK_MONOTONIC);
     __atomic_store_n(&s->seq, w->open_seq + 2, __ATOMIC_RELEASE);
     __atomic_store_n(&w->hdr->latest, psmi_latest(i, w->open_seq + 2), __ATOMIC_RELEASE);
-    w->latest    = i;
+    w->latest = i;
     w->open_slot = PSMI_LATEST_NONE;
     if (w->notify) {
         __atomic_fetch_add(&w->hdr->notify, 1, __ATOMIC_RELEASE);
@@ -693,16 +697,16 @@ int psmsgr_state_abort(psmsgr_state_writer *w)
 
 struct psmsgr_state_reader {
     const psmi_header *hdr; /* NULL while unattached */
-    size_t             map_size;
-    uint32_t           slot_count;
-    uint32_t           slot_stride;
-    uint32_t           capacity;
-    uint32_t           payload_type;
-    uint32_t           config_flags;
-    bool               announce; /* next info carries PSMSGR_INFO_ATTACHED */
-    dev_t              dev;
-    ino_t              ino;
-    paths              paths;
+    size_t map_size;
+    uint32_t slot_count;
+    uint32_t slot_stride;
+    uint32_t capacity;
+    uint32_t payload_type;
+    uint32_t config_flags;
+    bool announce; /* next info carries PSMSGR_INFO_ATTACHED */
+    dev_t dev;
+    ino_t ino;
+    paths paths;
 };
 
 int psmsgr_state_reader_open(const char *name, const char *dir, psmsgr_state_reader **out)
@@ -758,16 +762,16 @@ static int attach(psmsgr_state_reader *r)
         if (m == MAP_FAILED) {
             rc = PSMSGR_E_SYS;
         } else {
-            r->hdr          = m;
-            r->map_size     = size;
-            r->slot_count   = h.slot_count;
-            r->slot_stride  = h.slot_stride;
-            r->capacity     = h.capacity;
+            r->hdr = m;
+            r->map_size = size;
+            r->slot_count = h.slot_count;
+            r->slot_stride = h.slot_stride;
+            r->capacity = h.capacity;
             r->payload_type = h.payload_type;
             r->config_flags = h.config_flags;
-            r->dev          = st.st_dev;
-            r->ino          = st.st_ino;
-            r->announce     = true;
+            r->dev = st.st_dev;
+            r->ino = st.st_ino;
+            r->announce = true;
         }
     }
     close_keep_errno(fd);
@@ -841,13 +845,12 @@ static int read_latest(const psmsgr_state_reader *r, void *buf, uint32_t size, b
             if (copy && fits && m.length <= r->capacity)
                 psmi_seq_copy(buf, (const unsigned char *)s + PSMI_SLOT_HEADER_SIZE, m.length);
             seq_fence_acquire();
-            if (__atomic_load_n(&s->seq, __ATOMIC_RELAXED) == q1
-                || psmi_test_skip_seq_recheck) {
+            if (__atomic_load_n(&s->seq, __ATOMIC_RELAXED) == q1 || psmi_test_skip_seq_recheck) {
                 if (m.length > r->capacity)
                     return PSMSGR_E_FORMAT;
                 *info = (psmsgr_state_info){
-                    .generation   = m.generation,
-                    .length       = m.length,
+                    .generation = m.generation,
+                    .length = m.length,
                     .timestamp_ns = m.timestamp_ns,
                 };
                 return (!copy || fits) ? PSMSGR_OK : PSMSGR_E_TOOSMALL;
@@ -902,10 +905,10 @@ int psmsgr_state_describe(psmsgr_state_reader *r, psmsgr_state_desc *desc)
     if (rc != PSMSGR_OK)
         return rc;
     *desc = (psmsgr_state_desc){
-        .capacity     = r->capacity,
-        .slot_count   = r->slot_count,
+        .capacity = r->capacity,
+        .slot_count = r->slot_count,
         .payload_type = r->payload_type,
-        .flags        = (r->config_flags & PSMI_CONFIG_NO_NOTIFY) ? PSMSGR_STATE_NO_NOTIFY : 0,
+        .flags = (r->config_flags & PSMI_CONFIG_NO_NOTIFY) ? PSMSGR_STATE_NO_NOTIFY : 0,
     };
     return PSMSGR_OK;
 }
@@ -916,8 +919,8 @@ int psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generation, int32_t 
     if (r == NULL)
         return PSMSGR_E_INVAL;
     bool infinite = timeout_ms < 0;
-    uint64_t deadline = infinite ? UINT64_MAX
-                                 : psmi_clock_ns(CLOCK_MONOTONIC) + (uint64_t)timeout_ms * NS_PER_MS;
+    uint64_t deadline =
+        infinite ? UINT64_MAX : psmi_clock_ns(CLOCK_MONOTONIC) + (uint64_t)timeout_ms * NS_PER_MS;
     for (;;) {
         int rc = reader_sync(r);
         if (rc != PSMSGR_OK && rc != PSMSGR_E_NODATA)
