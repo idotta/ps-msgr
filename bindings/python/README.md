@@ -28,29 +28,50 @@ major version differs, or its minor version is older than the binding needs.
 ## Usage
 
 ```python
-import struct
+import ctypes
+
 from ps_msgr import StateReader, StateWriter
 
-IMU_V1 = 0x0001_0001
-imu = struct.Struct("<Qfff")  # sequence number, x, y, z
+
+class MotorStatus(ctypes.Structure):
+    """Mirrors the C `struct motor_status`: same fields, same natural alignment."""
+
+    _fields_ = [
+        ("sequence", ctypes.c_uint64),
+        ("speed_rpm", ctypes.c_float),
+        ("current_a", ctypes.c_float),
+        ("temperature_c", ctypes.c_float),
+    ]
+
+
+MOTOR_STATUS_V1 = 0x0001_0001  # schema 1, version 1 (payload_type)
+SIZE = ctypes.sizeof(MotorStatus)  # 24: padded to the 8-byte alignment of sequence
 
 # Writer
-with StateWriter("imu", imu.size, payload_type=IMU_V1) as w:
-    generation = w.publish(imu.pack(1, 0.0, 0.0, 9.81))
+with StateWriter("motor", SIZE, payload_type=MOTOR_STATUS_V1) as w:
+    status = MotorStatus(sequence=1, speed_rpm=1500.0, current_a=2.5, temperature_c=41.0)
+    generation = w.publish(memoryview(status))
 
 # Reader: may start before the writer
-with StateReader("imu") as r:
+with StateReader("motor") as r:
+    status = MotorStatus()
     seen = 0
     while r.wait(seen, timeout=0.5):  # False after 0.5 s without a change
-        snap = r.read()
-        if snap is None:
+        info = r.read_into(memoryview(status))  # copies straight into the struct
+        if info is None:
             continue
-        if snap.attached and r.describe().payload_type != IMU_V1:
+        if info.attached and r.describe().payload_type != MOTOR_STATUS_V1:
             raise RuntimeError("unexpected payload type")
-        seen = snap.generation
-        seq, x, y, z = imu.unpack(snap.data)
+        if info.length != SIZE:
+            raise RuntimeError(f"unexpected payload size {info.length}")
+        seen = info.generation
+        print(status.sequence, status.speed_rpm, status.temperature_c)
 ```
 
+- Payloads are plain C structs mirrored with `ctypes.Structure`: declare the
+  same fields in the same order and ctypes lays them out like the C compiler
+  does. Pass `memoryview(obj)` to `publish()` and `read_into()`; with
+  `read()`, use `MotorStatus.from_buffer_copy(snapshot.data)`.
 - `read()` returns a `Snapshot` with a copy of the value; `read_into(buf)`
   copies into a `bytearray` or writable `memoryview` without allocating.
   Both return `None` while there is no value.
