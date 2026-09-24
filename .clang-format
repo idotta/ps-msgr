@@ -14,7 +14,6 @@ AlignConsecutiveShortCaseStatements:
 AlignConsecutiveMacros: Consecutive
 AlignEscapedNewlines: Left
 Cpp11BracedListStyle: false
-SortIncludes: Never
 ReflowComments: false
 InsertNewlineAtEOF: true
 ...

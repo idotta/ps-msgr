@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /* Headers are self-contained and public struct layouts are pinned: these are
  * ABI, and the bindings (ctypes, P/Invoke) mirror them byte for byte. */
-#include <psmsgr/state.h>
+#include <psmsgr/state.h> /* first, in its own block: it must compile alone */
+
 #include <psmsgr/psmsgr.h>
 
 #include <stddef.h>
