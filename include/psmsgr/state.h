@@ -29,7 +29,7 @@ enum {
 };
 
 typedef struct psmsgr_state_options {
-    uint32_t    struct_size;   /* set by psmsgr_state_options_init */
+    uint32_t    struct_size;   /* set by psmsgr_state_options_init[_sized] */
     uint32_t    capacity;      /* max payload bytes, 0 .. PSMSGR_STATE_MAX_CAPACITY */
     uint32_t    slot_count;    /* 2 .. 16; default PSMSGR_STATE_DEFAULT_SLOTS */
     uint32_t    payload_type;  /* application tag; default 0 */
@@ -57,7 +57,17 @@ typedef struct psmsgr_state_desc {
 
 /* ---- writer ------------------------------------------------------------ */
 
-PSMSGR_API void psmsgr_state_options_init(psmsgr_state_options *opt);
+/* Sets the defaults and struct_size = size, writing only the first `size`
+ * bytes of *opt (zeroing any beyond the library's own struct). Bindings call
+ * it with their struct's size; C callers use psmsgr_state_options_init. */
+PSMSGR_API void psmsgr_state_options_init_sized(psmsgr_state_options *opt, uint32_t size);
+
+/* Inline so that struct_size is the caller's sizeof, not the loaded
+ * library's: a newer library never writes past an older caller's struct. */
+static inline void psmsgr_state_options_init(psmsgr_state_options *opt)
+{
+    psmsgr_state_options_init_sized(opt, (uint32_t)sizeof *opt);
+}
 
 /* Opens or creates the channel and takes the writer lock (state-channel.md §5.1).
  * opt NULL: psmsgr_state_options_init() defaults.
@@ -105,7 +115,7 @@ PSMSGR_API int psmsgr_state_peek(psmsgr_state_reader *r, psmsgr_state_info *info
 
 /* Blocks until the generation differs from last_generation (0 = "any value").
  * timeout_ms < 0: infinite, 0: poll once.
- * OK | TIMEOUT | INTR | NOTSUP | FORMAT | SYS. */
+ * OK | TIMEOUT | INTR | NOTSUP | FORMAT | SYS (e.g. ENOSYS: futex blocked). */
 PSMSGR_API int psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generation,
                                  int32_t timeout_ms);
 

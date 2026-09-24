@@ -4,6 +4,7 @@
  * comes from CTest. */
 #include "state_util.h"
 
+#include <inttypes.h>
 #include <poll.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -153,15 +154,18 @@ static void published(void **state)
 {
     psmsgr_state_writer *w = NULL;
     assert_rc(open_writer(CHAN, 64, 3, PSMSGR_STATE_NO_NOTIFY, &w), PSMSGR_OK);
+    uint32_t gen;
     assert_rc(publish_str(w, "first", NULL), PSMSGR_OK);
-    assert_rc(publish_str(w, "hello", NULL), PSMSGR_OK);
+    assert_rc(publish_str(w, "hello", &gen), PSMSGR_OK);
     psmsgr_state_writer_close(w);
+    char value[64];
+    snprintf(value, sizeof value, "value         generation %" PRIu32 ", length 5, age ", gen);
 
     assert_int_equal(dump(CHAN), 0);
     assert_output("config_flags  0x00000001 NO_NOTIFY");
     assert_output("latest        0x");
     assert_output("<- latest");
-    assert_output("value         generation 2, length 5, age ");
+    assert_output(value);
     assert_output("writer        not running");
     assert_null(strstr(run.out, "STALE"));
     assert_null(strstr(run.out, "payload       "));
@@ -274,19 +278,23 @@ static void hex_dumps_the_latest_payload(void **state)
 {
     psmsgr_state_writer *w = NULL;
     assert_rc(open_writer(CHAN, 2000, 2, 0, &w), PSMSGR_OK);
-    assert_rc(publish_str(w, "hello, psmsgr!", NULL), PSMSGR_OK);
+    uint32_t gen;
+    assert_rc(publish_str(w, "hello, psmsgr!", &gen), PSMSGR_OK);
 
+    char payload[64];
+    snprintf(payload, sizeof payload, "payload       generation %" PRIu32 ", 14 bytes", gen);
     assert_int_equal(dump(CHAN, "--hex"), 0);
-    assert_output("payload       generation 1, 14 bytes");
+    assert_output(payload);
     assert_output("  00000000  68 65 6c 6c 6f 2c 20 70  73 6d 73 67 72 21        |hello, psmsgr!|");
     assert_null(strstr(run.out, "more bytes"));
 
     /* Capped at 1 KiB. */
     static unsigned char big[2000];
     memset(big, 'x', sizeof big);
-    assert_rc(psmsgr_state_publish(w, big, sizeof big, NULL), PSMSGR_OK);
+    assert_rc(psmsgr_state_publish(w, big, sizeof big, &gen), PSMSGR_OK);
+    snprintf(payload, sizeof payload, "payload       generation %" PRIu32 ", 2000 bytes", gen);
     assert_int_equal(dump(CHAN, "--hex"), 0);
-    assert_output("payload       generation 2, 2000 bytes");
+    assert_output(payload);
     assert_output("  000003f0  78 78");
     assert_null(strstr(run.out, "  00000400  "));
     assert_output("  ... 976 more bytes");
@@ -296,9 +304,10 @@ static void hex_dumps_the_latest_payload(void **state)
     assert_rc(open_writer("empty", 0, 2, 0, &w), PSMSGR_OK);
     assert_int_equal(dump("empty", "--hex"), 0);
     assert_output("payload       no data");
-    assert_rc(psmsgr_state_publish(w, NULL, 0, NULL), PSMSGR_OK);
+    assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
+    snprintf(payload, sizeof payload, "payload       generation %" PRIu32 ", 0 bytes", gen);
     assert_int_equal(dump("empty", "--hex"), 0);
-    assert_output("payload       generation 1, 0 bytes");
+    assert_output(payload);
     psmsgr_state_writer_close(w);
 }
 
@@ -306,13 +315,17 @@ static void watch_redraws_on_change(uint32_t flags)
 {
     psmsgr_state_writer *w = NULL;
     assert_rc(open_writer(CHAN, 64, 3, flags, &w), PSMSGR_OK);
-    assert_rc(publish_str(w, "one", NULL), PSMSGR_OK);
+    uint32_t gen;
+    assert_rc(publish_str(w, "one", &gen), PSMSGR_OK);
 
+    char want[2][64];
+    snprintf(want[0], sizeof want[0], "value         generation %" PRIu32 ",", gen);
+    snprintf(want[1], sizeof want[1], "value         generation %" PRIu32 ",", gen_after(gen, 1));
     proc_start(&run, CHAN, "--watch", (const char *)NULL);
-    bool first = proc_read_until(&run, "value         generation 1,", 30000);
+    bool first = proc_read_until(&run, want[0], 30000);
     if (first)
         assert_rc(publish_str(w, "two", NULL), PSMSGR_OK);
-    bool second = first && proc_read_until(&run, "value         generation 2,", 30000);
+    bool second = first && proc_read_until(&run, want[1], 30000);
     kill(run.pid, SIGINT);
     int status = proc_wait(&run);
     psmsgr_state_writer_close(w);

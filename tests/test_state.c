@@ -94,6 +94,41 @@ static void options_defaults_and_limits(void **state)
     assert_uint_equal(h.payload_type, 0);
 }
 
+/* The sized init writes only the caller's bytes: an older caller's struct is
+ * never overrun, and a newer caller's unknown fields read as 0. */
+static void options_init_sized(void **state)
+{
+    size_t short_size = offsetof(psmsgr_state_options, mode);
+    unsigned char buf[sizeof(psmsgr_state_options) + 16];
+    memset(buf, 0xA5, sizeof buf);
+    psmsgr_state_options *o = (psmsgr_state_options *)(void *)buf;
+    psmsgr_state_options_init_sized(o, (uint32_t)short_size);
+    assert_uint_equal(o->struct_size, short_size);
+    assert_uint_equal(o->capacity, 0);
+    assert_uint_equal(o->slot_count, PSMSGR_STATE_DEFAULT_SLOTS);
+    assert_uint_equal(o->payload_type, 0);
+    for (size_t i = short_size; i < sizeof buf; ++i)
+        assert_uint_equal(buf[i], 0xA5);
+
+    memset(buf, 0xA5, sizeof buf);
+    psmsgr_state_options_init_sized(o, (uint32_t)sizeof buf);
+    assert_uint_equal(o->struct_size, sizeof buf);
+    assert_uint_equal(o->mode, 0644);
+    assert_null(o->dir);
+    for (size_t i = sizeof *o; i < sizeof buf; ++i)
+        assert_uint_equal(buf[i], 0);
+    o->capacity = 8;
+    o->dir      = test_dir;
+    psmsgr_state_writer *w = NULL;
+    assert_rc(psmsgr_state_writer_open(CHAN, o, &w), PSMSGR_OK);
+    psmsgr_state_writer_close(w);
+
+    memset(buf, 0xA5, sizeof buf);
+    psmsgr_state_options_init_sized(o, 3); /* too small for struct_size */
+    assert_uint_equal(buf[0], 0xA5);
+    psmsgr_state_options_init_sized(NULL, sizeof *o);
+}
+
 static void dir_comes_from_env_once(void **state)
 {
     setenv("PSMSGR_DIR", test_dir, 1);
@@ -149,11 +184,11 @@ static void create_then_reuse(void **state)
     assert_uint_equal(h.writer_pid, (uint32_t)getpid());
     assert_true(h.created_realtime_ns > 0);
 
-    uint32_t gen = 0;
-    assert_rc(publish_str(w, "one", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 1);
+    uint32_t gen = 0, first;
+    assert_rc(publish_str(w, "one", &first), PSMSGR_OK);
+    assert_uint_not_equal(first, 0);
     assert_rc(publish_str(w, "two", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 2);
+    assert_uint_equal(gen, gen_after(first, 1));
     assert_rc(publish_str(w, "three", NULL), PSMSGR_OK);
     assert_int_equal(raw_header(CHAN, &h), 0);
     assert_uint_equal(h.latest, psmi_latest(2, 2)); /* slot 2, committed once */
@@ -165,7 +200,7 @@ static void create_then_reuse(void **state)
     assert_rc(psmsgr_state_writer_open(CHAN, &o, &w), PSMSGR_OK);
     assert_uint_equal(inode_of(data_path(CHAN)), ino);
     assert_rc(publish_str(w, "four", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 4);
+    assert_uint_equal(gen, gen_after(first, 3));
     assert_int_equal(raw_header(CHAN, &h), 0);
     assert_uint_equal(h.latest, psmi_latest(0, 4)); /* rotation continues after the last slot */
 
@@ -174,7 +209,7 @@ static void create_then_reuse(void **state)
     psmsgr_state_info info;
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "four");
-    assert_uint_equal(info.generation, 4);
+    assert_uint_equal(info.generation, gen_after(first, 3));
     assert_uint_equal(info.length, 4);
     assert_uint_equal(info.reserved, 0);
     psmsgr_state_desc d;
@@ -191,9 +226,8 @@ static void mismatch_and_recreate(void **state)
 {
     psmsgr_state_writer *w = NULL;
     assert_rc(open_writer(CHAN, 16, 3, 0, &w), PSMSGR_OK);
-    uint32_t gen;
-    assert_rc(publish_str(w, "old", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 1);
+    uint32_t gen, old_gen;
+    assert_rc(publish_str(w, "old", &old_gen), PSMSGR_OK);
     psmsgr_state_writer_close(w);
 
     psmsgr_state_reader *r = open_reader(CHAN);
@@ -211,7 +245,7 @@ static void mismatch_and_recreate(void **state)
     assert_rc(psmsgr_state_writer_open(CHAN, &o, &w), PSMSGR_E_MISMATCH);
     assert_null(w);
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
-    assert_uint_equal(info.generation, 1);
+    assert_uint_equal(info.generation, old_gen);
 
     ino_t ino = inode_of(data_path(CHAN));
     assert_rc(open_writer(CHAN, 32, 3, PSMSGR_STATE_RECREATE, &w), PSMSGR_OK);
@@ -224,10 +258,10 @@ static void mismatch_and_recreate(void **state)
     assert_rc(psmsgr_state_describe(r, &d), PSMSGR_OK);
     assert_uint_equal(d.capacity, 32);
     assert_rc(publish_str(w, "new", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 2); /* carried */
+    assert_uint_equal(gen, gen_after(old_gen, 1)); /* carried */
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "new");
-    assert_uint_equal(info.generation, 2);
+    assert_uint_equal(info.generation, gen);
     assert_true(info.flags & PSMSGR_INFO_ATTACHED);
 
     /* RECREATE on a compatible file is a plain reuse. */
@@ -322,6 +356,7 @@ static void crash_mid_publish(void **state)
     psmsgr_state_info info;
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "one");
+    uint32_t first = info.generation;
 
     /* Leftovers of an interrupted create. Only exact tmp names are ours:
      * the longer ones belong to a channel named "chan.state.tmp.AbC123". */
@@ -344,11 +379,11 @@ static void crash_mid_publish(void **state)
 
     uint32_t gen;
     assert_rc(publish_str(w, "two", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 2);
+    assert_uint_equal(gen, gen_after(first, 1));
     assert_uint_equal(raw_slot_seq(CHAN, 1), seq + 1); /* rewritten and committed */
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "two");
-    assert_uint_equal(info.generation, 2);
+    assert_uint_equal(info.generation, gen);
     psmsgr_state_writer_close(w);
     psmsgr_state_reader_close(r);
 }
@@ -402,12 +437,13 @@ static void read_results_and_sizes(void **state)
     assert_rc(psmsgr_state_publish(w, NULL, 1, NULL), PSMSGR_E_INVAL);
     assert_rc(psmsgr_state_publish(NULL, "x", 1, NULL), PSMSGR_E_INVAL);
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_E_NODATA); /* failures publish nothing */
-    assert_rc(psmsgr_state_publish(w, "12345678", 8, NULL), PSMSGR_OK);
+    uint32_t gen;
+    assert_rc(psmsgr_state_publish(w, "12345678", 8, &gen), PSMSGR_OK);
 
     memset(buf, 0xAA, sizeof buf);
     assert_rc(psmsgr_state_read(r, buf, 7, &info), PSMSGR_E_TOOSMALL);
     assert_uint_equal(info.length, 8);
-    assert_uint_equal(info.generation, 1);
+    assert_uint_equal(info.generation, gen);
     assert_true(info.flags & PSMSGR_INFO_ATTACHED); /* TOOSMALL is a result too */
     assert_uint_equal(buf[0], 0xAA); /* nothing copied */
     assert_rc(psmsgr_state_read(r, buf, 8, &info), PSMSGR_OK);
@@ -434,19 +470,18 @@ static void heartbeat_channel(void **state)
     assert_int_equal(stat(data_path(CHAN), &st), 0);
     assert_int_equal(st.st_size, 128 + 2 * 64);
     assert_rc(psmsgr_state_publish(w, "x", 1, NULL), PSMSGR_E_TOOBIG);
-    uint32_t gen;
-    assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 1);
+    uint32_t gen, first;
+    assert_rc(psmsgr_state_publish(w, NULL, 0, &first), PSMSGR_OK);
     void *buf;
     assert_rc(psmsgr_state_begin(w, &buf), PSMSGR_OK);
     assert_rc(psmsgr_state_commit(w, 1, NULL), PSMSGR_E_TOOBIG);
     assert_rc(psmsgr_state_commit(w, 0, &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 2);
+    assert_uint_equal(gen, gen_after(first, 1));
 
     psmsgr_state_reader *r = open_reader(CHAN);
     psmsgr_state_info info;
     assert_rc(psmsgr_state_read(r, NULL, 0, &info), PSMSGR_OK);
-    assert_uint_equal(info.generation, 2);
+    assert_uint_equal(info.generation, gen);
     assert_uint_equal(info.length, 0);
     psmsgr_state_desc d;
     assert_rc(psmsgr_state_describe(r, &d), PSMSGR_OK);
@@ -464,13 +499,12 @@ static void begin_commit_abort(void **state)
     psmsgr_state_reader *r = open_reader(CHAN);
     char str[32];
     psmsgr_state_info info;
-    uint32_t gen;
+    uint32_t gen, first;
 
     assert_rc(psmsgr_state_commit(w, 0, NULL), PSMSGR_E_STATE);
     assert_rc(psmsgr_state_abort(w), PSMSGR_E_STATE);
     assert_rc(psmsgr_state_begin(w, NULL), PSMSGR_E_INVAL);
-    assert_rc(publish_str(w, "A", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 1); /* slot 0 */
+    assert_rc(publish_str(w, "A", &first), PSMSGR_OK); /* slot 0 */
 
     void *buf = NULL, *again = NULL;
     assert_rc(psmsgr_state_begin(w, &buf), PSMSGR_OK);
@@ -487,7 +521,7 @@ static void begin_commit_abort(void **state)
     assert_true(raw_slot_seq(CHAN, 1) & 1u);
     assert_rc(read_str(r, str, sizeof str, &info), PSMSGR_OK);
     assert_string_equal(str, "A");
-    assert_uint_equal(info.generation, 1);
+    assert_uint_equal(info.generation, first);
 
     /* The next begin reuses that slot and commits it. */
     assert_rc(psmsgr_state_begin(w, &again), PSMSGR_OK);
@@ -495,11 +529,11 @@ static void begin_commit_abort(void **state)
     memcpy(again, "B", 1);
     assert_rc(psmsgr_state_commit(w, 17, NULL), PSMSGR_E_TOOBIG); /* begin stays open */
     assert_rc(psmsgr_state_commit(w, 1, &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 2);
+    assert_uint_equal(gen, gen_after(first, 1));
     assert_uint_equal(raw_slot_seq(CHAN, 1) & 1u, 0);
     assert_rc(read_str(r, str, sizeof str, &info), PSMSGR_OK);
     assert_string_equal(str, "B");
-    assert_uint_equal(info.generation, 2);
+    assert_uint_equal(info.generation, gen_after(first, 1));
 
     /* Close with an open begin aborts it. */
     assert_rc(psmsgr_state_begin(w, &buf), PSMSGR_OK);
@@ -508,7 +542,7 @@ static void begin_commit_abort(void **state)
     assert_rc(read_str(r, str, sizeof str, &info), PSMSGR_OK);
     assert_string_equal(str, "B");
     assert_rc(publish_str(w, "C", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 3);
+    assert_uint_equal(gen, gen_after(first, 2));
     assert_rc(read_str(r, str, sizeof str, &info), PSMSGR_OK);
     assert_string_equal(str, "C");
     psmsgr_state_writer_close(w);
@@ -548,15 +582,18 @@ static void peek_timestamps(void **state)
     assert_rc(open_writer(CHAN, 8, 3, 0, &w), PSMSGR_OK);
     psmsgr_state_reader *r = open_reader(CHAN);
     uint64_t prev = 0;
+    uint32_t first = 0;
     for (uint32_t i = 1; i <= 20; ++i) {
         uint64_t before = psmsgr_now_ns();
         uint32_t gen;
         assert_rc(psmsgr_state_publish(w, &i, sizeof i, &gen), PSMSGR_OK);
-        assert_uint_equal(gen, i);
+        if (i == 1)
+            first = gen;
+        assert_uint_equal(gen, gen_after(first, i - 1));
         uint64_t after = psmsgr_now_ns();
         psmsgr_state_info info;
         assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
-        assert_uint_equal(info.generation, i);
+        assert_uint_equal(info.generation, gen);
         assert_uint_equal(info.length, sizeof i);
         /* Not assert_uint_in_range: in cmocka 2.0.2 it converts through
          * intmax_t and trips gcc's -Wsign-conversion. CLOCK_MONOTONIC
@@ -718,9 +755,7 @@ static void wait_follows_unlink(void **state)
     assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
     psmsgr_state_reader *r = open_reader(CHAN);
     uint32_t gen;
-    assert_rc(publish_str(w, "a", NULL), PSMSGR_OK);
-    assert_rc(publish_str(w, "b", &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 2);
+    assert_rc(publish_str(w, "a", &gen), PSMSGR_OK); /* a new file's first value */
     assert_rc(psmsgr_state_wait(r, 0, 0), PSMSGR_OK);
     psmsgr_state_writer_close(w);
     int old_fd = open(data_path(CHAN), O_RDONLY | O_CLOEXEC);
@@ -731,25 +766,25 @@ static void wait_follows_unlink(void **state)
     sleep_ms(50); /* likely blocked by now; the test holds either way */
     int  rc_unlink = psmsgr_state_unlink(CHAN, test_dir);
     bool gone      = access(data_path(CHAN), F_OK) != 0 && access(lock_path(CHAN), F_OK) != 0;
-    bool notified  = retired_and_notified(old_fd, 2);
+    bool notified  = retired_and_notified(old_fd, 1);
     close(old_fd);
     sleep_ms(50);
     int early   = __atomic_load_n(&wt.done, __ATOMIC_ACQUIRE);
     int rc_open = open_writer(CHAN, 8, 2, 0, &w);
-    int rc_pub  = rc_open == PSMSGR_OK ? publish_str(w, "c", &gen) : rc_open;
-    int rc_wait = waiter_join(&wt);
+    uint32_t new_gen = 0;
+    int rc_pub  = rc_open == PSMSGR_OK ? publish_str(w, "c", &new_gen) : rc_open;
+    int rc_wait = waiter_join(&wt); /* waits for last = gen: the new file must not reuse it */
     assert_rc(rc_unlink, PSMSGR_OK);
     assert_true(gone);
     assert_true(notified);
     assert_int_equal(early, 0);
     assert_rc(rc_open, PSMSGR_OK);
     assert_rc(rc_pub, PSMSGR_OK);
-    assert_uint_equal(gen, 1); /* fresh channel */
     assert_rc(rc_wait, PSMSGR_OK);
 
     psmsgr_state_info info;
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
-    assert_uint_equal(info.generation, 1);
+    assert_uint_equal(info.generation, new_gen);
     psmsgr_state_writer_close(w);
     assert_rc(psmsgr_state_unlink(CHAN, test_dir), PSMSGR_OK);
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_E_NODATA); /* retire check */
@@ -820,7 +855,8 @@ static void orphaned_file(void **state)
     psmsgr_state_reader *r = open_reader(CHAN);
     char buf[16];
     psmsgr_state_info info;
-    assert_rc(publish_str(w, "old", NULL), PSMSGR_OK);
+    uint32_t old_gen, gen;
+    assert_rc(publish_str(w, "old", &old_gen), PSMSGR_OK);
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "old");
     psmsgr_state_writer_close(w);
@@ -829,18 +865,18 @@ static void orphaned_file(void **state)
     assert_int_equal(unlink(data_path(CHAN)), 0);
     assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
     assert_rc(publish_str(w, "new", NULL), PSMSGR_OK);
-    assert_rc(publish_str(w, "newer", NULL), PSMSGR_OK);
+    assert_rc(publish_str(w, "newer", &gen), PSMSGR_OK);
 
     /* read and peek make no syscalls: they keep the old value. */
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "old");
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
-    assert_uint_equal(info.generation, 1);
+    assert_uint_equal(info.generation, old_gen);
 
     assert_int_equal(psmsgr_state_writer_alive(r), 1); /* identity check: reattaches */
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "newer");
-    assert_uint_equal(info.generation, 2);
+    assert_uint_equal(info.generation, gen);
     assert_true(info.flags & PSMSGR_INFO_ATTACHED);
     psmsgr_state_writer_close(w);
 
@@ -850,14 +886,14 @@ static void orphaned_file(void **state)
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_E_NODATA);
     assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
     assert_rc(publish_str(w, "one", NULL), PSMSGR_OK);
-    assert_rc(publish_str(w, "two", NULL), PSMSGR_OK);
+    assert_rc(publish_str(w, "two", &gen), PSMSGR_OK);
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "two");
     psmsgr_state_writer_close(w);
     assert_int_equal(unlink(data_path(CHAN)), 0);
     assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
-    assert_rc(publish_str(w, "three", NULL), PSMSGR_OK); /* generation 1 */
-    assert_rc(psmsgr_state_wait(r, 2, 5000), PSMSGR_OK); /* at its 1 s identity check */
+    assert_rc(publish_str(w, "three", NULL), PSMSGR_OK);
+    assert_rc(psmsgr_state_wait(r, gen, 5000), PSMSGR_OK); /* at its 1 s identity check */
     assert_rc(read_str(r, buf, sizeof buf, &info), PSMSGR_OK);
     assert_string_equal(buf, "three");
     psmsgr_state_writer_close(w);
@@ -873,6 +909,7 @@ static void minor_version_recreates(void **state)
     uint32_t gen;
     for (int i = 0; i < 3; ++i)
         assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
+    uint32_t old_gen = gen;
     psmsgr_state_writer_close(w);
 
     uint16_t minor = 1;
@@ -880,10 +917,14 @@ static void minor_version_recreates(void **state)
     psmsgr_state_reader *r = open_reader(CHAN);
     psmsgr_state_info info;
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK); /* readers accept any minor */
-    assert_uint_equal(info.generation, 3);
+    assert_uint_equal(info.generation, old_gen);
     assert_true(info.flags & PSMSGR_INFO_ATTACHED);
 
+    /* The upgrade is automatic, a geometry change still needs RECREATE. */
     ino_t ino = inode_of(data_path(CHAN));
+    assert_rc(open_writer(CHAN, 16, 2, 0, &w), PSMSGR_E_MISMATCH);
+    assert_rc(open_writer(CHAN, 8, 3, 0, &w), PSMSGR_E_MISMATCH);
+    assert_uint_equal(inode_of(data_path(CHAN)), ino);
     assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK); /* no RECREATE needed */
     assert_uint_not_equal(inode_of(data_path(CHAN)), ino);
     psmi_header h;
@@ -891,10 +932,20 @@ static void minor_version_recreates(void **state)
     assert_uint_equal(h.version_minor, 0);
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_E_NODATA); /* followed the retire */
     assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 4);
+    assert_uint_equal(gen, gen_after(old_gen, 1));
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
-    assert_uint_equal(info.generation, 4);
+    assert_uint_equal(info.generation, gen);
     assert_true(info.flags & PSMSGR_INFO_ATTACHED);
+    psmsgr_state_writer_close(w);
+
+    /* With RECREATE, both at once. */
+    assert_int_equal(raw_write(data_path(CHAN), &minor, sizeof minor, 6), 0);
+    ino = inode_of(data_path(CHAN));
+    assert_rc(open_writer(CHAN, 16, 2, PSMSGR_STATE_RECREATE, &w), PSMSGR_OK);
+    assert_uint_not_equal(inode_of(data_path(CHAN)), ino);
+    assert_uint_equal(psmsgr_state_writer_capacity(w), 16);
+    assert_int_equal(raw_header(CHAN, &h), 0);
+    assert_uint_equal(h.version_minor, 0);
     psmsgr_state_writer_close(w);
     psmsgr_state_reader_close(r);
 }
@@ -929,9 +980,9 @@ static void invalid_file_needs_recreate(void **state)
     assert_rc(open_writer(CHAN, 8, 2, PSMSGR_STATE_RECREATE, &w), PSMSGR_OK);
     uint32_t gen;
     assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 1);
+    assert_uint_not_equal(gen, 0);
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
-    assert_uint_equal(info.generation, 1);
+    assert_uint_equal(info.generation, gen);
     psmsgr_state_writer_close(w);
 
     /* An empty file and a corrupt `latest` are invalid too. */
@@ -948,13 +999,14 @@ static void invalid_file_needs_recreate(void **state)
     psmsgr_state_reader_close(r);
 }
 
-/* A file left RETIRED by an interrupted unlink is replaced, not reused. */
+/* A file left RETIRED by an interrupted unlink is replaced, not reused, and
+ * like a missing file with any geometry. */
 static void retired_file_is_replaced(void **state)
 {
     psmsgr_state_writer *w = NULL;
     assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
-    uint32_t gen;
-    assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
+    uint32_t gen, old_gen;
+    assert_rc(psmsgr_state_publish(w, NULL, 0, &old_gen), PSMSGR_OK);
     psmsgr_state_writer_close(w);
     uint32_t retired = PSMI_STATE_RETIRED;
     assert_int_equal(raw_write(data_path(CHAN), &retired, sizeof retired, 36), 0);
@@ -966,9 +1018,14 @@ static void retired_file_is_replaced(void **state)
     assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
     assert_uint_not_equal(inode_of(data_path(CHAN)), ino);
     assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
-    assert_uint_equal(gen, 2);
+    assert_uint_equal(gen, gen_after(old_gen, 1));
     assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
-    assert_uint_equal(info.generation, 2);
+    assert_uint_equal(info.generation, gen);
+    psmsgr_state_writer_close(w);
+
+    assert_int_equal(raw_write(data_path(CHAN), &retired, sizeof retired, 36), 0);
+    assert_rc(open_writer(CHAN, 16, 3, 0, &w), PSMSGR_OK); /* no RECREATE needed */
+    assert_uint_equal(psmsgr_state_writer_capacity(w), 16);
     psmsgr_state_writer_close(w);
     psmsgr_state_reader_close(r);
 }
@@ -1250,6 +1307,7 @@ int main(void)
 
         TEST(names_are_validated),
         TEST(options_defaults_and_limits),
+        TEST(options_init_sized),
         TEST(dir_comes_from_env_once),
         TEST(create_then_reuse),
         TEST(mismatch_and_recreate),

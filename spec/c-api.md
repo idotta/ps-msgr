@@ -25,8 +25,13 @@ Status: **draft**. Protocol semantics are defined in
   handles.
 - Only symbols prefixed `psmsgr_` are exported (`-fvisibility=hidden` plus
   an export macro).
-- ABI extensibility: structs passed *in* start with `struct_size`, set by
-  their `*_init` function. The library reads only the fields it knows.
+- ABI extensibility: structs passed *in* start with `struct_size`, the size
+  of the caller's struct. The library reads only the fields that size covers
+  and that it knows. Their `*_init` function is `static inline` in the
+  header, so that `struct_size` is the caller's `sizeof`: a newer library
+  never writes past the end of an older caller's struct. It forwards to an
+  exported `*_init_sized(opt, size)`, which bindings call with the size of
+  their own struct.
 
 ## `<psmsgr/psmsgr.h>`
 
@@ -82,7 +87,7 @@ enum {
 };
 
 typedef struct psmsgr_state_options {
-    uint32_t    struct_size;   /* set by psmsgr_state_options_init */
+    uint32_t    struct_size;   /* set by psmsgr_state_options_init[_sized] */
     uint32_t    capacity;      /* max payload bytes, 0 .. PSMSGR_STATE_MAX_CAPACITY */
     uint32_t    slot_count;    /* 2 .. 16; default PSMSGR_STATE_DEFAULT_SLOTS */
     uint32_t    payload_type;  /* application tag; default 0 */
@@ -116,7 +121,14 @@ typedef struct psmsgr_state_desc {
 ### Writer
 
 ```c
-void psmsgr_state_options_init(psmsgr_state_options *opt);
+/* Sets the defaults and struct_size = size, writing only the first `size`
+ * bytes of *opt (zeroing any beyond the library's own struct). */
+void psmsgr_state_options_init_sized(psmsgr_state_options *opt, uint32_t size);
+
+static inline void psmsgr_state_options_init(psmsgr_state_options *opt)
+{
+    psmsgr_state_options_init_sized(opt, (uint32_t)sizeof *opt);
+}
 
 /* Opens or creates the channel and takes the writer lock (state-channel.md §5.1).
  * opt NULL: psmsgr_state_options_init() defaults.
@@ -165,7 +177,7 @@ int  psmsgr_state_peek(psmsgr_state_reader *r, psmsgr_state_info *info);
 
 /* Blocks until the generation differs from last_generation (0 = "any value").
  * timeout_ms < 0: infinite, 0: poll once.
- * OK | TIMEOUT | INTR | NOTSUP | FORMAT | SYS. */
+ * OK | TIMEOUT | INTR | NOTSUP | FORMAT | SYS (e.g. ENOSYS: futex blocked). */
 int  psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generation,
                        int32_t timeout_ms);
 
