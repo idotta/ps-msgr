@@ -155,8 +155,8 @@ Every test uses its own temporary directory as the channel `dir`, never
 - A second writer in the same process and in another process gets
   `WRITER_EXISTS`. The lock is released when the holder is killed with
   `SIGKILL`.
-- Crash mid-publish: a slot left with an odd `seq` is recovered, and stale
-  `.tmp` files are cleaned up.
+- Crash mid-publish: a slot left with an odd `seq` stays unreadable until
+  the next publish rewrites it, and stale `.tmp` files are cleaned up.
 - A lazy reader opened before the writer exists attaches after the first
   publish.
 - `NODATA` before the first publish, `TOOSMALL` (with the length reported),

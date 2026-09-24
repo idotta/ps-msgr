@@ -17,6 +17,17 @@ static int test_failures;
         }                                                                     \
     } while (0)
 
+/* Like CHECK, but returns from the (void) test function on failure. */
+#define REQUIRE(cond)                                                         \
+    do {                                                                      \
+        if (!(cond)) {                                                        \
+            fprintf(stderr, "%s:%d: REQUIRE failed: %s\n", __FILE__, __LINE__, \
+                    #cond);                                                   \
+            ++test_failures;                                                  \
+            return;                                                           \
+        }                                                                     \
+    } while (0)
+
 #define RUN(test_fn)                                    \
     do {                                                \
         int before_ = test_failures;                    \
