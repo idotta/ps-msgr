@@ -13,7 +13,9 @@ writer to many readers through a shared-memory file in `/dev/shm`:
 - Optional blocking `wait`.
 - Readers can start before the writer.
 
-Status: **specification draft**, not implemented yet. See [`spec/`](spec/README.md).
+Status: the C library with state channels, `psmsgr-dump` and `psmsgr-bench` are
+implemented and tested in CI (x86-64, arm64, armhf under qemu); on-target
+validation and the Python and C# bindings are pending. See [`spec/`](spec/README.md).
 
 | Directory | Contents |
 |---|---|
@@ -21,8 +23,8 @@ Status: **specification draft**, not implemented yet. See [`spec/`](spec/README.
 | `include/`, `src/`, `tests/`, `cmake/` | `libpsmsgr`: headers, implementation, C tests, build support |
 | `tools/` | `psmsgr-dump`: inspect a channel |
 | `bench/` | `psmsgr-bench`: latency on the target ([how to run it](bench/README.md)) |
-| `bindings/python/` | `ps_msgr` (ctypes binding) |
-| `bindings/csharp/` | `PsMsgr` (P/Invoke binding) |
+| `bindings/python/` | `ps_msgr` (ctypes binding, pending) |
+| `bindings/csharp/` | `PsMsgr` (P/Invoke binding, pending) |
 | `docker/` | Build container and `run.sh` |
 
 ## Building

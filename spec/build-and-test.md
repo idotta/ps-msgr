@@ -269,7 +269,7 @@ recreates the channel under Python and C# readers.
 | Job | Purpose |
 |---|---|
 | x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. All jobs run in the build container. |
-| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. |
+| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. |
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, 64-bit `time_t`) plus the `libatomic` check. |
 | Python (x86-64) | Binding tests plus interop. |
 | C# (x86-64) | Binding tests plus interop on .NET LTS; a Mono smoke test of the `netstandard2.1` assembly. |

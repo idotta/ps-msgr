@@ -22,12 +22,12 @@ jobs:
       matrix:
         preset: [dev, dev-clang, tsan, release, armhf, armhf-release]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build container
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: docker
           file: docker/build.Dockerfile
@@ -47,7 +47,7 @@ jobs:
 
       - name: Upload packages
         if: endsWith(matrix.preset, 'release')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deb-${{ matrix.preset }}
           path: build/${{ matrix.preset }}/*.deb
@@ -60,12 +60,12 @@ jobs:
     name: c (release, arm64)
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build container
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: docker
           file: docker/build.Dockerfile
@@ -78,3 +78,11 @@ jobs:
         env:
           PSMSGR_TORTURE_SECONDS: 10
         run: docker/run.sh cmake --workflow --preset release
+
+      # CTest shows a test's output only when it fails. Print the counters
+      # of the run above from CTest's log instead of running the torture
+      # test (70 s here) again. grep fails the step if the section is gone.
+      - name: Torture test counters
+        run: >-
+          sed -n '/ Test: test_torture$/,/^"test_torture" end time/p'
+          build/release/Testing/Temporary/LastTest.log | grep .
