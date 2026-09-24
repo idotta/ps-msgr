@@ -18,7 +18,8 @@ Status: **draft**. Protocol semantics are defined in
   `begin`/`commit`, `read`, `peek`). All allocation happens in `*_open`.
 - `read` and `peek` make no syscalls while attached. `publish`/`commit`
   make at most two: the notify wake, and `clock_gettime` where the vDSO
-  can't serve it (likely on the AM335x, see state-channel.md §8).
+  can't serve it (always on the AM335x, about 1.3 µs; see
+  state-channel.md §8).
 - The library never writes to stdout/stderr, never installs signal handlers,
   never calls `exit`/`abort`, and keeps no global mutable state apart from
   handles.

@@ -233,8 +233,9 @@ its own mapping of the file.
   with `PR_SET_PDEATHSIG`, and report their counts through a pipe.
 - `PSMSGR_TORTURE_SECONDS` sets the duration per variant (default 1;
   fractions allowed). `docker/run.sh` passes it through. CTest's 300 s
-  timeout still applies, so for long runs on the board, run the binary
-  directly.
+  timeout still applies, so for long runs, run the binary directly. On the
+  board, use `PSMSGR_TORTURE_SECONDS=60` (at 1 s the 1 MiB variants get
+  only about 15 publishes): the 6 variants then take 6 minutes.
 - **Fault injection.** A last test sets the hidden hook
   `psmi_test_skip_seq_recheck` (`src/internal.h`), which makes readers skip
   the second `seq` comparison, and MUST detect torn reads. Without this, a
@@ -280,14 +281,19 @@ recreates the channel under Python and C# readers.
 
 Run the torture test and `psmsgr-bench` on a real BeagleBone Black, with the
 `performance` CPU frequency governor. `bench/README.md` describes the run.
+The test fixture creates its channels under `$TMPDIR` (default `/tmp`),
+which is not a tmpfs on the BeagleBoard.org image: run the unit tests and
+the torture test on the board with `TMPDIR=/dev/shm`.
 Record in the release notes, under "On-target measurements", the
 benchmark's CSV output with its header lines. It covers the publish, read
 and peek latency for 16 B, 256 B, 4 KiB and 64 KiB payloads, uncontended
 and against a writer in another process (with the `BUSY` count), the
 wake-up latency of `wait` and of polling a `NO_NOTIFY` channel, and the
 cost of `clock_gettime`, both through libc and as a raw syscall. Note
-whether it ran under `chrt`. There are no numeric targets until the first
-measurement.
+whether it ran under `chrt`. Also commit the CSVs and the torture output to
+`bench/results/<date>-bbb-<commit>/`, the baseline the next run compares
+against. There are no numeric targets yet; the first measurement is in
+`bench/results/2026-09-24-bbb-6511c25/`.
 
 CI builds `psmsgr-bench` (in `dev`, `dev-clang` and `armhf-release`) but
 never runs it: numbers from x86 or qemu mean nothing.

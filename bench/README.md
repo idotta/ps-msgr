@@ -19,12 +19,16 @@ ssh debian@beaglebone sudo apt install ./libpsmsgr1_*.deb ./psmsgr-tools_*.deb
 ## Running it
 
 ```sh
-# Fixed CPU frequency: the default ondemand/schedutil governor scales it
-# under load, which shows up as bimodal latencies.
+# Fixed CPU frequency: schedutil scales it under load, which shows up as
+# bimodal latencies. The BeagleBoard.org trixie image already defaults to
+# performance; note the governor first, and restore it afterwards.
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 echo performance | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 
 psmsgr-bench | tee bench.txt
 psmsgr-bench --csv > bench.csv        # for the release notes
+# Per-operation cost without the timer overhead (see below).
+psmsgr-bench --csv --batch 100 --iterations 1000 --seconds 1 > bench-batch100.csv
 
 # Optional: run as SCHED_FIFO so other tasks cannot preempt the measurement.
 # The writer processes inherit the policy.
@@ -33,7 +37,19 @@ sudo chrt -f 50 psmsgr-bench --csv > bench-fifo.csv
 
 The AM335x has a single core, so `taskset` has nothing to choose from. With
 `chrt -f`, record that in the release notes: it changes the wake-up numbers
-most.
+most. RT throttling (`/proc/sys/kernel/sched_rt_runtime_us`, 950000 by
+default) still stops SCHED_FIFO tasks for 50 ms every second, which shows up
+as about 50 ms in the `max` column. Ignore `max` in that run, or write -1
+there for the run and restore it afterwards (the image has no `sysctl`).
+
+On the BeagleBone Black, `clock_gettime` is a syscall (about 1.3 µs), so the
+`timer overhead` row is larger than a `peek` and dominates the short rows.
+The `--batch 100` run gives the per-operation figures.
+
+The wake-up rows depend on cpuidle more than on anything else: the
+`mpu_gate` idle state (130 µs exit latency, enabled by default) adds about
+95 µs to the `wait` median. Record whether it was enabled
+(`/sys/devices/system/cpu/cpu0/cpuidle/state1/disable`) with the results.
 
 A full run takes a minute or two with the defaults. Channels go into a private
 directory under `/dev/shm` (or `--dir`), which is removed at exit.
@@ -66,3 +82,17 @@ wake-up takes longer than the publish period.
 Paste the CSV, with its `#` header lines, into the release notes under
 "On-target measurements", together with the governor and whether `chrt`
 was used.
+
+Also commit the CSVs and the torture output to
+`bench/results/<date>-bbb-<commit>/` (`bench-fifo.csv` is the `chrt` run),
+so the next run has a baseline to compare against. In the 2026-09-24
+baseline, the `read, writer active` and `poll wake-up, 100 us` rows have an
+unquoted comma in the test name, so they have one field more than the
+header. The torture output comes
+from the `test_torture` binary, run directly (6 minutes at 60 s, over
+CTest's timeout) with its channels on tmpfs:
+
+```sh
+TMPDIR=/dev/shm PSMSGR_TORTURE_SECONDS=1  ./test_torture > torture-1s.log 2>&1
+TMPDIR=/dev/shm PSMSGR_TORTURE_SECONDS=60 ./test_torture > torture-60s.log 2>&1
+```
