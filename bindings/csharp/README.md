@@ -111,8 +111,12 @@ An AOT app can link the static library into its executable, so that no
 </ItemGroup>
 ```
 
-`libpsmsgr.a` comes with `libpsmsgr-dev`. `PSMSGR_LIBRARY` has no effect
-then.
+`libpsmsgr.a` comes with `libpsmsgr-dev`. Leave `PSMSGR_LIBRARY` unset
+then: the calls go to the linked copy, but the binding still loads the file
+it names, and the first call fails if it cannot.
+
+Both the dynamic and the static build run on the BeagleBone Black
+([on-target results](../../bench/results/2026-09-24-bbb-bindings-ebc2ba0/REPORT.md)).
 
 ## Development
 
