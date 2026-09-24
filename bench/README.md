@@ -28,7 +28,7 @@ echo performance | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_governo
 psmsgr-bench | tee bench.txt
 psmsgr-bench --csv > bench.csv        # for the release notes
 # Per-operation cost without the timer overhead (see below).
-psmsgr-bench --csv --batch 100 --iterations 1000 > bench-batch100.csv
+psmsgr-bench --csv --batch 100 --iterations 1000 --seconds 1 > bench-batch100.csv
 
 # Optional: run as SCHED_FIFO so other tasks cannot preempt the measurement.
 # The writer processes inherit the policy.
@@ -80,4 +80,11 @@ was used.
 
 Also commit the CSVs and the torture output to
 `bench/results/<date>-bbb-<commit>/` (`bench-fifo.csv` is the `chrt` run),
-so the next run has a baseline to compare against.
+so the next run has a baseline to compare against. The torture output comes
+from the `test_torture` binary, run directly (6 minutes at 60 s, over
+CTest's timeout) with its channels on tmpfs:
+
+```sh
+TMPDIR=/dev/shm PSMSGR_TORTURE_SECONDS=1  ./test_torture > torture-1s.log 2>&1
+TMPDIR=/dev/shm PSMSGR_TORTURE_SECONDS=60 ./test_torture > torture-60s.log 2>&1
+```

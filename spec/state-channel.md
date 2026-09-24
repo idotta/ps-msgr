@@ -446,7 +446,7 @@ for (;;) {
 - There is no waiter count, which keeps reader mappings read-only
   (`FUTEX_WAIT` works on read-only shared mappings). The price is that the
   writer makes one `FUTEX_WAKE` syscall per publish, even when nobody is
-  waiting (about 2.8 µs on the BeagleBone Black, 2.6× a small `NO_NOTIFY`
+  waiting (about 2.8 µs on the BeagleBone Black, 1.6× a small `NO_NOTIFY`
   publish). Channels published at high rates that are only ever polled SHOULD
   be created with `NO_NOTIFY`. On those channels, `wait` returns
   `PSMSGR_E_NOTSUP`.

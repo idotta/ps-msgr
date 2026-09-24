@@ -233,9 +233,10 @@ its own mapping of the file.
   with `PR_SET_PDEATHSIG`, and report their counts through a pipe.
 - `PSMSGR_TORTURE_SECONDS` sets the duration per variant (default 1;
   fractions allowed). `docker/run.sh` passes it through. CTest's 300 s
-  timeout still applies, so for long runs on the board, run the binary
-  directly. On the board, use `PSMSGR_TORTURE_SECONDS=60`: at 1 s the
-  1 MiB variants get only about 15 publishes.
+  timeout still applies, so for long runs, run the binary directly. On the
+  board, use `PSMSGR_TORTURE_SECONDS=60` (at 1 s the 1 MiB variants get
+  only about 15 publishes). The 6 variants then take 6 minutes, over the
+  CTest timeout, so run `test_torture` directly there.
 - **Fault injection.** A last test sets the hidden hook
   `psmi_test_skip_seq_recheck` (`src/internal.h`), which makes readers skip
   the second `seq` comparison, and MUST detect torn reads. Without this, a
@@ -282,8 +283,8 @@ recreates the channel under Python and C# readers.
 Run the torture test and `psmsgr-bench` on a real BeagleBone Black, with the
 `performance` CPU frequency governor. `bench/README.md` describes the run.
 The test fixture creates its channels under `$TMPDIR` (default `/tmp`),
-which is not a tmpfs on the BeagleBoard.org image: run the unit tests on
-the board with `TMPDIR=/dev/shm`.
+which is not a tmpfs on the BeagleBoard.org image: run the unit tests and
+the torture test on the board with `TMPDIR=/dev/shm`.
 Record in the release notes, under "On-target measurements", the
 benchmark's CSV output with its header lines. It covers the publish, read
 and peek latency for 16 B, 256 B, 4 KiB and 64 KiB payloads, uncontended
