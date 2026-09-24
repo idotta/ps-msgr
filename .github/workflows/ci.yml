@@ -52,3 +52,29 @@ jobs:
           name: deb-${{ matrix.preset }}
           path: build/${{ matrix.preset }}/*.deb
           if-no-files-found: error
+
+  # x86 hides memory-ordering bugs, and qemu-user on an x86 host still runs
+  # with x86 ordering, so only real AArch64 hardware tests the seqlock on
+  # weakly ordered memory. Same Dockerfile, built natively for arm64.
+  c-arm64:
+    name: c (release, arm64)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build container
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          file: docker/build.Dockerfile
+          tags: psmsgr-build
+          load: true
+          cache-from: type=gha,scope=psmsgr-build-arm64
+          cache-to: type=gha,mode=max,scope=psmsgr-build-arm64
+
+      - name: Configure, build, test (and package)
+        env:
+          PSMSGR_TORTURE_SECONDS: 10
+        run: docker/run.sh cmake --workflow --preset release

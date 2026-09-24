@@ -22,8 +22,12 @@ target_compile_options(psmsgr_test_flags INTERFACE -Wno-unused-parameter)
 # Tests call the public API through the shared library, exactly like the
 # bindings do. With STATIC they link the static library instead, which also
 # gives them the internal test hooks (src/internal.h); the .so exports none.
+# LABEL defaults to unit.
 function(psmsgr_add_test name source)
-    cmake_parse_arguments(ARG "STATIC" "" "" ${ARGN})
+    cmake_parse_arguments(ARG "STATIC" "LABEL" "" ${ARGN})
+    if(NOT ARG_LABEL)
+        set(ARG_LABEL unit)
+    endif()
     add_executable(${name} ${source})
     if(ARG_STATIC)
         target_link_libraries(${name} PRIVATE psmsgr_static)
@@ -36,7 +40,7 @@ function(psmsgr_add_test name source)
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
     target_compile_definitions(${name} PRIVATE _GNU_SOURCE)
     add_test(NAME ${name} COMMAND ${name})
-    set_tests_properties(${name} PROPERTIES LABELS unit TIMEOUT 300)
+    set_tests_properties(${name} PROPERTIES LABELS ${ARG_LABEL} TIMEOUT 300)
     if(_psmsgr_test_env)
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "${_psmsgr_test_env}")
     endif()
@@ -46,6 +50,8 @@ psmsgr_add_test(test_common test_common.c)
 psmsgr_add_test(test_headers test_headers.c)
 psmsgr_add_test(test_state test_state.c)
 psmsgr_add_test(test_state_hooks test_state_hooks.c STATIC)
+# Seqlock torture: select with ctest -L torture, skip with -LE torture.
+psmsgr_add_test(test_torture test_torture.c STATIC LABEL torture)
 
 include(CheckLanguage)
 check_language(CXX)

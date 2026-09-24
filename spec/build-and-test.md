@@ -204,16 +204,38 @@ Every test uses its own temporary directory as the channel `dir`, never
 
 ### Torture (C)
 
-One writer and N readers (threads *and* processes), for a fixed duration:
+`tests/test_torture.c`: one writer and N readers (threads *and* processes),
+for a fixed duration. Each reader opens its own handle, so every reader has
+its own mapping of the file.
 
 - Each payload is `{generation, length, bytes derived from generation, CRC32}`,
-  with a random length in `[0, capacity]`.
-- Every successful read MUST validate: the CRC is correct, and the embedded
-  generation equals `info.generation`.
-- Per reader, the sequence of generations read MUST be non-decreasing (as a
-  wrapped sequence).
-- `BUSY` is counted and reported, and must stay rare.
-- Variants cover `slot_count` 2 and 3, and capacities from 16 B to 1 MiB.
+  with a random length in `[0, capacity]`. A payload shorter than that
+  12-byte frame is only the derived bytes.
+- The writer mixes `publish`, `begin`/`commit` and, rarely, `begin` with a
+  partial overwrite and `abort`. It starts just below the generation wrap.
+- Every successful read MUST validate: the CRC is correct (for a short
+  payload, the bytes match the ones derived from `info.generation`), the
+  embedded generation equals `info.generation`, and the embedded length
+  equals `info.length`.
+- Per reader, the sequence of generations read and peeked MUST be
+  non-decreasing as a wrapped sequence (`(int32_t)(g - prev) >= 0`), and so
+  MUST the timestamps.
+- `BUSY` is counted and reported, and must stay rare. It is not a hard
+  threshold, because the rate depends on the machine.
+- Variants cover `slot_count` 2 and 3, and capacities 16 B, 4 KiB and 1 MiB.
+- Reader processes are forked while the test program is single-threaded,
+  with `PR_SET_PDEATHSIG`, and report their counts through a pipe.
+- `PSMSGR_TORTURE_SECONDS` sets the duration per variant (default 1;
+  fractions allowed). `docker/run.sh` passes it through. CTest's 300 s
+  timeout still applies, so for long runs on the board, run the binary
+  directly.
+- **Fault injection.** A last test sets the hidden hook
+  `psmi_test_skip_seq_recheck` (`src/internal.h`), which makes readers skip
+  the second `seq` comparison, and MUST detect torn reads. Without this, a
+  passing torture test would prove nothing. The hook is why the test links
+  the static library.
+- The CTest label is `torture`, not `unit`: `ctest -L torture` runs it, and
+  `-LE torture` skips it. It still runs in every preset.
 
 ### Interop
 
@@ -241,7 +263,7 @@ recreates the channel under Python and C# readers.
 | Job | Purpose |
 |---|---|
 | x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. All jobs run in the build container. |
-| AArch64 native runner, torture test | Weakly ordered memory on real hardware. x86 hides ordering bugs. Uses the arm64 build of the same container image. |
+| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. |
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, 64-bit `time_t`) plus the `libatomic` check. |
 | Python (x86-64) | Binding tests plus interop. |
 | C# (x86-64) | Binding tests plus interop on .NET LTS; a Mono smoke test of the `netstandard2.1` assembly. |

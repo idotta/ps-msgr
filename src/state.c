@@ -31,6 +31,7 @@
 #define NS_PER_MS          UINT64_C(1000000)
 
 void (*psmi_test_lock_opened)(void);
+bool psmi_test_skip_seq_recheck;
 
 /* ---- small helpers ------------------------------------------------------- */
 
@@ -814,7 +815,8 @@ static int read_latest(const psmsgr_state_reader *r, void *buf, uint32_t size, b
             if (copy && fits && m.length <= r->capacity)
                 psmi_seq_copy(buf, (const unsigned char *)s + PSMI_SLOT_HEADER_SIZE, m.length);
             seq_fence_acquire();
-            if (__atomic_load_n(&s->seq, __ATOMIC_RELAXED) == q1) {
+            if (__atomic_load_n(&s->seq, __ATOMIC_RELAXED) == q1
+                || psmi_test_skip_seq_recheck) {
                 if (m.length > r->capacity)
                     return PSMSGR_E_FORMAT;
                 *info = (psmsgr_state_info){

@@ -9,6 +9,7 @@
 
 #include <psmsgr/state.h>
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <time.h>
@@ -33,6 +34,11 @@ void psmi_seq_copy(void *dst, const void *src, size_t n);
 /* Fault injection for the lock identity check (state-channel.md §4): called
  * between opening the lock file and locking it. NULL outside of tests. */
 extern void (*psmi_test_lock_opened)(void);
+
+/* Breaks the seqlock on purpose: a reader accepts a copy even when the slot's
+ * seq changed during it (§6.3). The torture test sets it to prove it detects
+ * torn reads. Read only on the retry path, so it costs nothing otherwise. */
+extern bool psmi_test_skip_seq_recheck;
 
 /* Sets the generation the writer's next publish will carry (must not be 0). */
 void psmi_writer_set_generation(psmsgr_state_writer *w, uint32_t next);
