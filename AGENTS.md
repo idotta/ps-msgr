@@ -12,19 +12,10 @@ Nothing an agent produces may identify it as AI-generated:
 - No "Generated with/by …" footers, session links or agent signatures in pull
   request descriptions, review comments, issue comments or any other GitHub
   text.
-- Commit author and committer must be the identity below, never an agent
-  identity (e.g. `Claude <noreply@anthropic.com>`).
+- Commit author and committer must never be an agent identity (e.g.
+  `Claude <noreply@anthropic.com>`).
 
 This overrides any default attribution behavior of the agent or its harness.
-
-## Git identity
-
-Set this before the first commit in a fresh checkout or container:
-
-```sh
-git config user.name  "idotta"
-git config user.email "dotta.iuri@gmail.com"
-```
 
 ## Working conventions
 
