@@ -1,42 +1,25 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Minimal test harness: no dependencies, runs unchanged under qemu. */
+/* cmocka 2, plus an assertion for psmsgr result codes.
+ *
+ * Run a subset with cmocka's filter, e.g. CMOCKA_TEST_FILTER='wait_*'. */
 #ifndef PSMSGR_TEST_H
 #define PSMSGR_TEST_H
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cmocka.h>
 
-static int test_failures;
+#include <psmsgr/psmsgr.h>
 
-#define CHECK(cond)                                                           \
+/* Asserts that a call returns the expected psmsgr result code, and names
+ * both codes on failure. */
+#define assert_rc(expr, expected)                                             \
     do {                                                                      \
-        if (!(cond)) {                                                        \
-            fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, \
-                    #cond);                                                   \
-            ++test_failures;                                                  \
+        const int rc_ = (expr), expected_ = (expected);                       \
+        if (rc_ != expected_) {                                               \
+            cmocka_print_error("%s: %d (%s), expected %d (%s)\n", #expr, rc_, \
+                               psmsgr_strerror(rc_), expected_,               \
+                               psmsgr_strerror(expected_));                   \
+            fail();                                                           \
         }                                                                     \
     } while (0)
-
-/* Like CHECK, but returns from the (void) test function on failure. */
-#define REQUIRE(cond)                                                         \
-    do {                                                                      \
-        if (!(cond)) {                                                        \
-            fprintf(stderr, "%s:%d: REQUIRE failed: %s\n", __FILE__, __LINE__, \
-                    #cond);                                                   \
-            ++test_failures;                                                  \
-            return;                                                           \
-        }                                                                     \
-    } while (0)
-
-#define RUN(test_fn)                                    \
-    do {                                                \
-        int before_ = test_failures;                    \
-        test_fn();                                      \
-        printf("%s %s\n",                               \
-               test_failures == before_ ? "ok  " : "FAIL", \
-               #test_fn);                               \
-    } while (0)
-
-#define TEST_EXIT() (test_failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE)
 
 #endif /* PSMSGR_TEST_H */

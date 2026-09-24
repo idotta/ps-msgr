@@ -1,6 +1,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 find_package(Threads REQUIRED)
+find_package(cmocka 2.0 CONFIG)
+if(NOT cmocka_FOUND)
+    message(FATAL_ERROR "The tests need cmocka >= 2.0 (the build container has it). "
+                        "Configure with -DPSMSGR_BUILD_TESTS=OFF to build without them.")
+endif()
+
+# cmocka catches SIGSEGV and SIGBUS to fail the test; ASan's report of the
+# same crash, with its stack trace, is more useful.
+set(_psmsgr_test_env "")
+if(PSMSGR_SANITIZE MATCHES "address")
+    list(APPEND _psmsgr_test_env "ASAN_OPTIONS=allow_user_segv_handler=0")
+endif()
+
+# cmocka test functions take a `void **state` most of them ignore. Linked
+# after psmsgr_flags: with clang, the last of -Wextra and this one wins.
+add_library(psmsgr_test_flags INTERFACE)
+target_compile_options(psmsgr_test_flags INTERFACE -Wno-unused-parameter)
 
 # Tests call the public API through the shared library, exactly like the
 # bindings do. With STATIC they link the static library instead, which also
@@ -13,12 +30,16 @@ function(psmsgr_add_test name source)
     else()
         target_link_libraries(${name} PRIVATE psmsgr)
     endif()
-    target_link_libraries(${name} PRIVATE psmsgr_flags Threads::Threads)
+    target_link_libraries(${name} PRIVATE psmsgr_flags psmsgr_test_flags
+                          cmocka::cmocka Threads::Threads)
     # layout.h: tests inspect and corrupt channel files from the outside.
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
     target_compile_definitions(${name} PRIVATE _GNU_SOURCE)
     add_test(NAME ${name} COMMAND ${name})
     set_tests_properties(${name} PROPERTIES LABELS unit TIMEOUT 300)
+    if(_psmsgr_test_env)
+        set_tests_properties(${name} PROPERTIES ENVIRONMENT "${_psmsgr_test_env}")
+    endif()
 endfunction()
 
 psmsgr_add_test(test_common test_common.c)
