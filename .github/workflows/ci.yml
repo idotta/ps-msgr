@@ -53,6 +53,29 @@ jobs:
           path: build/${{ matrix.preset }}/*.deb
           if-no-files-found: error
 
+  format:
+    name: format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build container
+        uses: docker/build-push-action@v7
+        with:
+          context: docker
+          file: docker/build.Dockerfile
+          tags: psmsgr-build
+          load: true
+          cache-from: type=gha,scope=psmsgr-build
+
+      # The container's clang-format is the reference: releases differ.
+      - name: clang-format
+        run: >-
+          docker/run.sh sh -c
+          'git ls-files -z "*.c" "*.h" "*.cpp" | xargs -0 clang-format --dry-run --Werror'
+
   # x86 hides memory-ordering bugs, and qemu-user on an x86 host still runs
   # with x86 ordering, so only real AArch64 hardware tests the seqlock on
   # weakly ordered memory. Same Dockerfile, built natively for arm64.

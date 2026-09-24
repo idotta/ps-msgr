@@ -20,6 +20,7 @@ RUN dpkg --add-architecture armhf \
         crossbuild-essential-armhf \
         libc6:armhf \
         clang \
+        clang-format \
         libclang-rt-dev \
         cmake \
         ninja-build \
