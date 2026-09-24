@@ -14,7 +14,10 @@
 #include <ftw.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -24,36 +27,37 @@
 
 static char test_dir[512];
 
-static inline void make_test_dir(void)
-{
-    const char *base = getenv("TMPDIR");
-    if (base == NULL || base[0] == '\0')
-        base = "/tmp";
-    snprintf(test_dir, sizeof test_dir, "%s/psmsgr-test-XXXXXX", base);
-    if (mkdtemp(test_dir) == NULL) {
-        perror("mkdtemp");
-        exit(2);
-    }
-}
-
 static inline int remove_entry(const char *path, const struct stat *sb, int flag, struct FTW *ftw)
 {
     (void)sb, (void)flag, (void)ftw;
     return remove(path);
 }
 
-static inline void remove_test_dir(void)
+/* Fixture: every test gets a fresh channel directory. Teardown also runs
+ * after a failed assertion. */
+static inline int make_test_dir(void **state)
 {
-    (void)nftw(test_dir, remove_entry, 16, FTW_DEPTH | FTW_PHYS);
+    (void)state;
+    const char *base = getenv("TMPDIR");
+    if (base == NULL || base[0] == '\0')
+        base = "/tmp";
+    snprintf(test_dir, sizeof test_dir, "%s/psmsgr-test-XXXXXX", base);
+    if (mkdtemp(test_dir) == NULL) {
+        perror("mkdtemp");
+        return -1;
+    }
+    return 0;
 }
 
-/* Every test gets a fresh channel directory. */
-#define TEST(test_fn)          \
-    do {                       \
-        make_test_dir();       \
-        RUN(test_fn);          \
-        remove_test_dir();     \
-    } while (0)
+static inline int remove_test_dir(void **state)
+{
+    (void)state;
+    (void)nftw(test_dir, remove_entry, 16, FTW_DEPTH | FTW_PHYS);
+    unsetenv("PSMSGR_DIR"); /* set by some tests; a failed one skips its own unsetenv */
+    return 0;
+}
+
+#define TEST(test_fn) cmocka_unit_test_setup_teardown(test_fn, make_test_dir, remove_test_dir)
 
 /* <test_dir>/psmsgr.<name><suffix>, in one of a few rotating buffers. */
 static inline const char *chan_path(const char *name, const char *suffix)
@@ -171,7 +175,9 @@ typedef struct child {
     int   fd; /* read end: the child's result */
 } child;
 
-/* Runs fn in a child, which reports its result and then waits to be killed. */
+/* Runs fn in a child, which reports its result and then waits to be killed.
+ * fn must not use cmocka assertions. A child that outlives a failed test is
+ * killed when the test program exits, so it cannot keep ctest waiting. */
 static inline child child_start(int (*fn)(void))
 {
     int p[2];
@@ -179,8 +185,11 @@ static inline child child_start(int (*fn)(void))
     if (pipe(p) != 0)
         return c;
     fflush(NULL);
+    pid_t parent = getpid();
     c.pid = fork();
     if (c.pid == 0) {
+        if (prctl(PR_SET_PDEATHSIG, SIGKILL) != 0 || getppid() != parent)
+            _exit(3);
         close(p[0]);
         int rc = fn();
         if (write(p[1], &rc, sizeof rc) != (ssize_t)sizeof rc)

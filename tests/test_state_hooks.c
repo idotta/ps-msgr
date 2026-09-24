@@ -4,27 +4,34 @@
 #include "internal.h"
 #include "state_util.h"
 
-static void generation_wraps_skipping_zero(void)
+static void generation_wraps_skipping_zero(void **state)
 {
     psmsgr_state_writer *w = NULL;
-    REQUIRE(open_writer(CHAN, 8, 2, 0, &w) == PSMSGR_OK);
+    assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
     psmsgr_state_reader *r = open_reader(CHAN);
     psmi_writer_set_generation(w, UINT32_MAX - 1);
 
     uint32_t gen;
     psmsgr_state_info info;
-    CHECK(psmsgr_state_publish(w, NULL, 0, &gen) == PSMSGR_OK && gen == UINT32_MAX - 1);
-    CHECK(psmsgr_state_publish(w, NULL, 0, &gen) == PSMSGR_OK && gen == UINT32_MAX);
-    CHECK(psmsgr_state_peek(r, &info) == PSMSGR_OK && info.generation == UINT32_MAX);
-    CHECK(psmsgr_state_publish(w, NULL, 0, &gen) == PSMSGR_OK && gen == 1);
-    CHECK(psmsgr_state_peek(r, &info) == PSMSGR_OK && info.generation == 1);
+    assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
+    assert_uint_equal(gen, UINT32_MAX - 1);
+    assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
+    assert_uint_equal(gen, UINT32_MAX);
+    assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
+    assert_uint_equal(info.generation, UINT32_MAX);
+    assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
+    assert_uint_equal(gen, 1);
+    assert_rc(psmsgr_state_peek(r, &info), PSMSGR_OK);
+    assert_uint_equal(info.generation, 1);
 
     /* The skip also applies when the generation is carried over. */
     psmi_writer_set_generation(w, UINT32_MAX);
-    CHECK(psmsgr_state_publish(w, NULL, 0, &gen) == PSMSGR_OK && gen == UINT32_MAX);
+    assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
+    assert_uint_equal(gen, UINT32_MAX);
     psmsgr_state_writer_close(w);
-    REQUIRE(open_writer(CHAN, 8, 2, 0, &w) == PSMSGR_OK);
-    CHECK(psmsgr_state_publish(w, NULL, 0, &gen) == PSMSGR_OK && gen == 1);
+    assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
+    assert_rc(psmsgr_state_publish(w, NULL, 0, &gen), PSMSGR_OK);
+    assert_uint_equal(gen, 1);
     psmsgr_state_writer_close(w);
     psmsgr_state_reader_close(r);
 }
@@ -44,19 +51,19 @@ static void unlink_and_restart(void)
     hook_c_rc      = open_writer(CHAN, 8, 2, 0, &hook_c);
 }
 
-static void unlink_racing_open_never_gives_two_writers(void)
+static void unlink_racing_open_never_gives_two_writers(void **state)
 {
-    REQUIRE(open_writer(CHAN, 8, 2, 0, &hook_a) == PSMSGR_OK);
+    assert_rc(open_writer(CHAN, 8, 2, 0, &hook_a), PSMSGR_OK);
     psmi_test_lock_opened = unlink_and_restart;
     psmsgr_state_writer *b = NULL;
     int rc = open_writer(CHAN, 8, 2, 0, &b);
     psmi_test_lock_opened = NULL;
 
-    CHECK(hook_unlink_rc == PSMSGR_OK);
-    CHECK(hook_c_rc == PSMSGR_OK);
+    assert_rc(hook_unlink_rc, PSMSGR_OK);
+    assert_rc(hook_c_rc, PSMSGR_OK);
     /* B locked the orphaned inode, noticed, and found C's lock. */
-    CHECK(rc == PSMSGR_E_WRITER_EXISTS);
-    CHECK(b == NULL);
+    assert_rc(rc, PSMSGR_E_WRITER_EXISTS);
+    assert_null(b);
     psmsgr_state_writer_close(b);
     psmsgr_state_writer_close(hook_c);
 }
@@ -73,29 +80,32 @@ static void hold_and_remove_lock(void)
         fprintf(stderr, "hold_and_remove_lock: %s\n", strerror(errno));
 }
 
-static void lock_held_on_old_inode_is_not_a_writer(void)
+static void lock_held_on_old_inode_is_not_a_writer(void **state)
 {
     psmsgr_state_writer *w = NULL;
-    REQUIRE(open_writer(CHAN, 8, 2, 0, &w) == PSMSGR_OK);
+    assert_rc(open_writer(CHAN, 8, 2, 0, &w), PSMSGR_OK);
     psmsgr_state_writer_close(w);
 
     psmi_test_lock_opened = hold_and_remove_lock;
-    CHECK(open_writer(CHAN, 8, 2, 0, &w) == PSMSGR_OK); /* retried on a fresh lock file */
+    int rc = open_writer(CHAN, 8, 2, 0, &w); /* retried on a fresh lock file */
     psmi_test_lock_opened = NULL;
-    CHECK(held_fd >= 0);
+    assert_rc(rc, PSMSGR_OK);
+    assert_true(held_fd >= 0);
 
     psmsgr_state_reader *r = open_reader(CHAN);
-    CHECK(psmsgr_state_writer_alive(r) == 1);
+    assert_int_equal(psmsgr_state_writer_alive(r), 1);
     psmsgr_state_writer_close(w);
-    CHECK(psmsgr_state_writer_alive(r) == 0);
+    assert_int_equal(psmsgr_state_writer_alive(r), 0);
     psmsgr_state_reader_close(r);
     close(held_fd);
 }
 
 int main(void)
 {
-    TEST(generation_wraps_skipping_zero);
-    TEST(unlink_racing_open_never_gives_two_writers);
-    TEST(lock_held_on_old_inode_is_not_a_writer);
-    return TEST_EXIT();
+    const struct CMUnitTest tests[] = {
+        TEST(generation_wraps_skipping_zero),
+        TEST(unlink_racing_open_never_gives_two_writers),
+        TEST(lock_held_on_old_inode_is_not_a_writer),
+    };
+    return cmocka_run_group_tests(tests, NULL, NULL);
 }

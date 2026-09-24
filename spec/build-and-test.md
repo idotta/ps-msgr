@@ -48,6 +48,10 @@ the same image.
   - `build-essential`, `crossbuild-essential-armhf`
   - `cmake`, `ninja-build`
   - `qemu-user` (runs armhf tests)
+  - cmocka 2.0 (C test framework). trixie ships 1.1.7, which predates the
+    current API, so the image builds the upstream release (pinned SHA-256)
+    as a static library for the host and for armhf. Test binaries therefore
+    need no cmocka at run time, on the board either.
   - `clang` (second compiler, sanitizers)
   - `python3`, the .NET SDK, and `mono-runtime` if trixie still ships it.
     Otherwise the Mono smoke test uses the Mono project's packages.
@@ -95,7 +99,8 @@ the library get correct package dependencies.
 ## C library
 
 - CMake ≥ 3.25 (presets v6, workflow presets; trixie ships 3.31), C11, and
-  no dependencies beyond glibc. `_GNU_SOURCE` is set internally.
+  no dependencies beyond glibc. `_GNU_SOURCE` is set internally. The tests
+  also need cmocka ≥ 2.0; `-DPSMSGR_BUILD_TESTS=OFF` builds without them.
 - `CMAKE_EXPORT_COMPILE_COMMANDS` is on, for clangd.
 - Build outputs:
   - `libpsmsgr.so.1` (SONAME) and `libpsmsgr.a`
@@ -143,6 +148,17 @@ preload path. `bindings/csharp/PsMsgr.AotSmoke/` is a console app used only by t
 Native AOT CI job.
 
 ## Tests
+
+The C unit tests use cmocka 2's current API: typed assertions
+(`assert_int_*` for signed values, `assert_uint_*` for unsigned ones) and
+nothing deprecated. Each test program is one CTest test; cmocka's
+`CMOCKA_TEST_FILTER` selects tests by name (e.g. `wait_*`). Every test has
+a fixture that creates and removes its channel directory. Assertions are
+fatal, so a test asserts nothing while a helper thread it started can still
+touch its stack. Result codes are checked with `assert_rc`, which prints
+both codes with their `psmsgr_strerror` text. In ASan builds CTest sets
+`ASAN_OPTIONS=allow_user_segv_handler=0`, so that a crash gets ASan's
+report and stack trace instead of cmocka's signal handler.
 
 Every test uses its own temporary directory as the channel `dir`, never
 `/dev/shm`, so that tests can run in parallel.
