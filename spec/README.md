@@ -74,9 +74,3 @@ their own spec (`queue-channel.md`), file suffix, magic number and API prefix
 (`psmsgr_queue_*`), probably in the same repository and library, so that they
 share the build, packaging and binding infrastructure. The state-channel
 format and API do not depend on them.
-
-## Superseded
-
-`python/ps_msgr/atomic_state.py` (write a temp file, then `rename(2)` it over
-the target) was the prototype for this design. The Python binding replaces
-it, and it will be removed once the binding exists.
