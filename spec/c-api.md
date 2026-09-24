@@ -256,7 +256,9 @@ debugging on the target.
   the named slot's current `seq`, or an odd `seq` there, is flagged as
   stale: a reader gets `BUSY` until the writer publishes again. An odd
   `seq` in any slot means a write in progress, or one left by an abort or
-  a crash.
+  a crash. A `latest` that readers get `FORMAT` from (a slot index out of
+  range, or a published slot whose length exceeds the capacity) is flagged
+  as invalid, and the exit status is 1.
 - **Consistent values** come only through the API: the latest value's
   generation, length and age (`peek`), writer liveness (`writer_alive`), and
   the `--hex` payload (`read`, at most the first 1 KiB shown).
