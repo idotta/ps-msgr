@@ -118,6 +118,7 @@ typedef struct psmsgr_state_desc {
 void psmsgr_state_options_init(psmsgr_state_options *opt);
 
 /* Opens or creates the channel and takes the writer lock (state-channel.md §5.1).
+ * opt NULL: psmsgr_state_options_init() defaults.
  * Errors: INVAL, WRITER_EXISTS, MISMATCH, FORMAT,
  *         SYS (e.g. ENOENT: dir missing, ENOSPC: tmpfs full, EACCES, ELOOP: symlink). */
 int  psmsgr_state_writer_open(const char *name,
@@ -152,17 +153,18 @@ int  psmsgr_state_reader_open(const char *name, const char *dir,
 void psmsgr_state_reader_close(psmsgr_state_reader *r);
 
 /* Copies the latest value into buf. info must not be NULL.
- * OK | NODATA | TOOSMALL (nothing copied, info->length set) | BUSY | FORMAT. */
+ * OK | NODATA | TOOSMALL (nothing copied, info->length set) | BUSY | FORMAT
+ * | SYS (the channel file cannot be opened, e.g. EACCES, ELOOP). */
 int  psmsgr_state_read(psmsgr_state_reader *r, void *buf, uint32_t size,
                        psmsgr_state_info *info);
 
 /* Generation, length and timestamp of the latest value without copying it.
- * No syscalls while attached. OK | NODATA | BUSY | FORMAT. */
+ * No syscalls while attached. OK | NODATA | BUSY | FORMAT | SYS. */
 int  psmsgr_state_peek(psmsgr_state_reader *r, psmsgr_state_info *info);
 
 /* Blocks until the generation differs from last_generation (0 = "any value").
  * timeout_ms < 0: infinite, 0: poll once.
- * OK | TIMEOUT | INTR | NOTSUP | FORMAT. */
+ * OK | TIMEOUT | INTR | NOTSUP | FORMAT | SYS. */
 int  psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generation,
                        int32_t timeout_ms);
 
@@ -171,7 +173,7 @@ int  psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generation,
  * reattaches if the file was replaced behind the library's back. */
 int  psmsgr_state_writer_alive(psmsgr_state_reader *r);
 
-/* Constant channel properties. OK | NODATA (not attached) | FORMAT. */
+/* Constant channel properties. OK | NODATA (not attached) | FORMAT | SYS. */
 int  psmsgr_state_describe(psmsgr_state_reader *r, psmsgr_state_desc *desc);
 ```
 

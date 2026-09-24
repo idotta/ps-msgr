@@ -159,20 +159,27 @@ open.
 ### 5.1 Open
 
 1. Validate the name and options.
-2. Open or create the lock file (`O_RDWR|O_CREAT|O_CLOEXEC`) and take the OFD
-   write lock (section 4).
-3. Delete any leftover `psmsgr.<name>.state.tmp.*` files. Holding the lock
-   guarantees none of them is in use.
+2. Open or create the lock file and take the OFD write lock (section 4).
+   Create it with `O_CREAT|O_EXCL` and `fchmod(mode)`; if it exists, open it
+   `O_RDWR` without `O_CREAT`, which also avoids `fs.protected_regular`.
+3. Delete any leftover `psmsgr.<name>.state.tmp.XXXXXX` files, matching
+   exactly six characters after `.tmp.`. Longer names belong to other
+   channels (e.g. `psmsgr.<name>.state.tmp.a.state` is the data file of a
+   channel named `<name>.state.tmp.a`). Holding the lock guarantees none of
+   ours is in use.
 4. Open the data file `O_RDWR|O_CLOEXEC`.
    - **Missing** → *create* (5.2).
    - **Present** → map it and validate it, then take the first case that
      applies:
      - **Invalid** (it fails the reader validation in 6.1, e.g. bad magic,
-       an unknown major version, or out-of-range fields) → *create* (5.2)
-       if `RECREATE` is requested, else fail with `PSMSGR_E_FORMAT`.
+       an unknown major version, or out-of-range fields, or `latest` is
+       neither `0xFFFFFFFF` nor below `slot_count`) → *create* (5.2) if
+       `RECREATE` is requested, else fail with `PSMSGR_E_FORMAT`.
      - **Different format version** (same major, different minor) →
        *create* (5.2), automatically. Attached readers follow through the
        retire, so upgrading the library needs no flag and no reboot.
+     - **Already `RETIRED`** (an `unlink` was interrupted between retiring
+       and deleting the file) → *create* (5.2), automatically.
      - **Different geometry**: `capacity`, `slot_count`, `payload_type` or
        `config_flags` differ from the request → *create* (5.2) if
        `RECREATE` is requested, else fail with `PSMSGR_E_MISMATCH`. A
@@ -201,9 +208,12 @@ open.
 
 ### 5.3 Reuse
 
-- Any slot left with an odd `seq` by a writer that crashed mid-publish is
-  reset to `seq + 1` (even). Such a slot is never `latest`, because `latest`
-  is only updated after the slot is committed.
+- A slot left with an odd `seq` (a writer crashed mid-publish, or closed with
+  a `begin` open) is **left odd**. Its payload may be partly overwritten
+  while its `generation` and `length` are still the old ones, so it must
+  never become readable again in that state. It is never `latest`, because
+  `latest` is only updated after a commit, and it is exactly the slot the
+  next publish writes (`latest + 1`), which then makes it even again.
 - The writer's next generation is `slots[latest].generation + 1`, or 1 if
   `latest == 0xFFFFFFFF`.
 
@@ -219,7 +229,8 @@ if (len > capacity) return PSMSGR_E_TOOBIG;
 uint32_t i = (W.latest == NONE) ? 0 : (W.latest + 1) % slot_count;
 slot *s = &slots[i];
 
-uint32_t q = atomic_load_explicit(&s->seq, relaxed);        // even
+uint32_t q = atomic_load_explicit(&s->seq, relaxed) & ~1u;  // odd if an aborted or
+                                                            // crashed publish left it so
 atomic_store_explicit(&s->seq, q + 1, relaxed);             // odd: writing
 atomic_thread_fence(memory_order_release);
 
@@ -244,7 +255,12 @@ W.gen = (W.gen == UINT32_MAX) ? 1 : W.gen + 1;             // 0 is never a valid
   - `begin` performs everything up to the release fence and returns
     `s->data`.
   - `commit(len)` writes the slot header fields and does the rest.
-  - `abort` stores `q + 2` without updating `latest`.
+  - `abort` leaves `seq` odd and does not update `latest`. Making the slot
+    even again would be wrong: the caller may have overwritten part of the
+    payload, and a reader that loaded `latest` when this slot last held the
+    latest value (possible with 2 slots and a preempted reader) would then
+    pass the seqlock check and return a torn value under the old
+    generation. The next `begin` picks the same slot.
 - While a `begin` is open, other readers are unaffected: the slot being
   written is never `latest`.
 - `publish` with `len == 0` is valid. On a `capacity == 0` channel it is the
@@ -252,8 +268,14 @@ W.gen = (W.gen == UINT32_MAX) ? 1 : W.gen + 1;             // 0 is never a valid
 - The payload copy is a data race in the C11 sense, as in any seqlock. It is
   sound in practice because the fences are full compiler barriers and emit
   `dmb ish` on ARMv7. The implementation MUST keep the copy strictly between
-  the fences, e.g. an out-of-line copy routine, and MUST annotate the copy
-  for ThreadSanitizer.
+  the fences, e.g. an out-of-line copy routine.
+- ThreadSanitizer cannot see this race, so the copy needs no annotation.
+  TSan tracks memory by virtual address, and every handle maps the file
+  separately: writer and readers reach the same pages through different
+  addresses, even inside one process. If handles ever share a mapping
+  (e.g. a per-process mapping cache), TSan will see the copies, and they
+  must then be annotated. The seqlock itself is verified by the torture
+  test, not by TSan.
 
 ### 5.5 Close
 
@@ -293,6 +315,13 @@ To attach:
 4. Cache the const header fields. The first `read` / `peek` result from a
    newly attached file carries `PSMSGR_INFO_ATTACHED` in `info.flags`, which
    tells the caller to re-check `describe()` (capacity, `payload_type`).
+   `describe` and `wait` do not consume the flag.
+5. If the file is already `RETIRED` (a replacement or `unlink` in progress,
+   or an interrupted `unlink`), unmap it and try once more; if that file is
+   retired too, stay unattached (`PSMSGR_E_NODATA`).
+
+A missing file is `PSMSGR_E_NODATA`. Other `open` errors (e.g. `EACCES`, or
+`ELOOP` for a symlink) are `PSMSGR_E_SYS`.
 
 ### 6.2 Retire check
 
@@ -410,9 +439,15 @@ for (;;) {
 section 4, so it fails with `PSMSGR_E_WRITER_EXISTS` while a writer is
 active. It then:
 
-1. sets `RETIRED` in the header of the current data file,
-2. increments its `notify` and wakes waiters,
-3. unlinks the data file and the lock file.
+1. deletes any leftover `.tmp.XXXXXX` files (5.1 step 3),
+2. unlinks the data file, then sets `RETIRED` in its header, increments its
+   `notify` and wakes waiters (unlinking first means readers that wake up
+   and reattach already find the path gone),
+3. unlinks the lock file while still holding its lock, so that a writer
+   that opened it concurrently fails the identity check and starts over.
+
+If the lock file is missing, `unlink` creates it to take the lock, like a
+writer, so that it cannot race a starting writer.
 
 Readers go back to unattached and return `PSMSGR_E_NODATA`.
 

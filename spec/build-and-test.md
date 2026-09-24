@@ -155,8 +155,8 @@ Every test uses its own temporary directory as the channel `dir`, never
 - A second writer in the same process and in another process gets
   `WRITER_EXISTS`. The lock is released when the holder is killed with
   `SIGKILL`.
-- Crash mid-publish: a slot left with an odd `seq` is recovered, and stale
-  `.tmp` files are cleaned up.
+- Crash mid-publish: a slot left with an odd `seq` stays unreadable until
+  the next publish rewrites it, and stale `.tmp` files are cleaned up.
 - A lazy reader opened before the writer exists attaches after the first
   publish.
 - `NODATA` before the first publish, `TOOSMALL` (with the length reported),
@@ -207,8 +207,9 @@ recreates the channel under Python and C# readers.
 ### Sanitizers
 
 - ASan+UBSan on the unit and torture tests.
-- TSan with the payload copy annotated (see state-channel.md §5.4). Any
-  other report is a bug.
+- TSan on the unit and torture tests. Any report is a bug. TSan cannot see
+  the seqlock race itself, because each handle maps the file separately
+  (state-channel.md §5.4); the torture test covers that.
 
 ## Conventions
 

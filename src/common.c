@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include <psmsgr/psmsgr.h>
 
-#include <time.h>
+#include "internal.h"
 
 _Static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
                "ps-msgr channel files are little-endian; big-endian hosts are unsupported");
@@ -35,8 +35,5 @@ const char *psmsgr_strerror(int code)
 
 uint64_t psmsgr_now_ns(void)
 {
-    struct timespec ts;
-    /* Cannot fail for CLOCK_MONOTONIC with a valid pointer. */
-    (void)clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000000000u + (uint64_t)ts.tv_nsec;
+    return psmi_clock_ns(CLOCK_MONOTONIC);
 }

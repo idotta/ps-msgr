@@ -1,16 +1,30 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Tests call only the public API, through the shared library, exactly like
-# the bindings do.
+find_package(Threads REQUIRED)
+
+# Tests call the public API through the shared library, exactly like the
+# bindings do. With STATIC they link the static library instead, which also
+# gives them the internal test hooks (src/internal.h); the .so exports none.
 function(psmsgr_add_test name source)
+    cmake_parse_arguments(ARG "STATIC" "" "" ${ARGN})
     add_executable(${name} ${source})
-    target_link_libraries(${name} PRIVATE psmsgr psmsgr_flags)
+    if(ARG_STATIC)
+        target_link_libraries(${name} PRIVATE psmsgr_static)
+    else()
+        target_link_libraries(${name} PRIVATE psmsgr)
+    endif()
+    target_link_libraries(${name} PRIVATE psmsgr_flags Threads::Threads)
+    # layout.h: tests inspect and corrupt channel files from the outside.
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
+    target_compile_definitions(${name} PRIVATE _GNU_SOURCE)
     add_test(NAME ${name} COMMAND ${name})
-    set_tests_properties(${name} PROPERTIES LABELS unit)
+    set_tests_properties(${name} PROPERTIES LABELS unit TIMEOUT 300)
 endfunction()
 
 psmsgr_add_test(test_common test_common.c)
 psmsgr_add_test(test_headers test_headers.c)
+psmsgr_add_test(test_state test_state.c)
+psmsgr_add_test(test_state_hooks test_state_hooks.c STATIC)
 
 include(CheckLanguage)
 check_language(CXX)
