@@ -193,7 +193,7 @@ internal static unsafe class Native
     internal static extern int psmsgr_state_writer_alive(IntPtr r);
 
     [DllImport(Library, SetLastError = true)]
-    internal static extern int psmsgr_state_describe(IntPtr r, NativeDesc* desc);
+    internal static extern int psmsgr_state_describe_sized(IntPtr r, NativeDesc* desc, uint size);
 
     [DllImport(Library, SetLastError = true)]
     internal static extern int psmsgr_state_unlink(byte* name, byte* dir);

@@ -388,6 +388,44 @@ static void crash_mid_publish(void **state)
     psmsgr_state_reader_close(r);
 }
 
+/* The sized describe writes only the caller's bytes: an older caller's struct
+ * is never overrun, and a newer caller's unknown fields read as 0. */
+static void describe_sized(void **state)
+{
+    psmsgr_state_options o = make_opts(8, 2, PSMSGR_STATE_NO_NOTIFY);
+    o.payload_type = 0x1234;
+    psmsgr_state_writer *w = NULL;
+    assert_rc(psmsgr_state_writer_open(CHAN, &o, &w), PSMSGR_OK);
+    psmsgr_state_reader *r = open_reader(CHAN);
+    assert_non_null(r);
+
+    size_t short_size = offsetof(psmsgr_state_desc, payload_type);
+    unsigned char buf[sizeof(psmsgr_state_desc) + 16];
+    psmsgr_state_desc *d = (psmsgr_state_desc *)(void *)buf;
+    memset(buf, 0xA5, sizeof buf);
+    assert_rc(psmsgr_state_describe_sized(r, d, (uint32_t)short_size), PSMSGR_OK);
+    assert_uint_equal(d->capacity, 8);
+    assert_uint_equal(d->slot_count, 2);
+    for (size_t i = short_size; i < sizeof buf; ++i)
+        assert_uint_equal(buf[i], 0xA5);
+
+    memset(buf, 0xA5, sizeof buf);
+    assert_rc(psmsgr_state_describe_sized(r, d, (uint32_t)sizeof buf), PSMSGR_OK);
+    assert_uint_equal(d->payload_type, 0x1234);
+    assert_uint_equal(d->flags, PSMSGR_STATE_NO_NOTIFY);
+    for (size_t i = sizeof *d; i < sizeof buf; ++i)
+        assert_uint_equal(buf[i], 0);
+
+    memset(buf, 0xA5, sizeof buf);
+    assert_rc(psmsgr_state_describe_sized(r, d, 0), PSMSGR_E_INVAL);
+    assert_uint_equal(buf[0], 0xA5);
+    assert_rc(psmsgr_state_describe_sized(r, NULL, sizeof *d), PSMSGR_E_INVAL);
+    assert_rc(psmsgr_state_describe_sized(NULL, d, sizeof *d), PSMSGR_E_INVAL);
+
+    psmsgr_state_reader_close(r);
+    psmsgr_state_writer_close(w);
+}
+
 /* ---- lazy reader ------------------------------------------------------------------- */
 
 static void lazy_reader_attaches_later(void **state)
@@ -1329,6 +1367,7 @@ int main(void)
         TEST(create_then_reuse),
         TEST(mismatch_and_recreate),
         TEST(second_writer_same_process),
+        TEST(describe_sized),
         TEST(lazy_reader_attaches_later),
         TEST(read_results_and_sizes),
         TEST(heartbeat_channel),

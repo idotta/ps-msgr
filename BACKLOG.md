@@ -8,12 +8,6 @@ resolves it.
 These can't be fixed after the tag without a SONAME bump, or the release
 process requires them.
 
-- [ ] **Extensible `psmsgr_state_desc`.** It has no `struct_size` and no
-  reserved fields (`include/psmsgr/state.h:51`). After 1.0, new fields (for
-  example format minor, writer PID or creation time) would break the ABI.
-  Add reserved words, or a `_sized` variant like `psmsgr_state_options`.
-  Also check whether the single reserved `u32` in `psmsgr_state_info` is
-  enough.
 - [ ] **Strict ABI check.**
   - `src/libpsmsgr.map` exports `psmsgr_*` by wildcard, and
     `cmake/CheckAbi.cmake:30` only checks the name prefix, so a removed or

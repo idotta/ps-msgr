@@ -257,7 +257,7 @@ public sealed unsafe class StateReader : IDisposable
     {
         IntPtr h = Handle();
         NativeDesc d;
-        int rc = Native.psmsgr_state_describe(h, &d);
+        int rc = Native.psmsgr_state_describe_sized(h, &d, (uint)sizeof(NativeDesc));
         GC.KeepAlive(this);
         if (rc == Native.Ok)
             return new ChannelDesc(d.Capacity, d.SlotCount, d.PayloadType, (d.Flags & Native.StateNoNotify) == 0);
@@ -287,7 +287,7 @@ public sealed unsafe class StateReader : IDisposable
     {
         _recheck = false;
         NativeDesc d;
-        int rc = Native.psmsgr_state_describe(h, &d);
+        int rc = Native.psmsgr_state_describe_sized(h, &d, (uint)sizeof(NativeDesc));
         GC.KeepAlive(this);
         uint size;
         if (rc == Native.Ok)
