@@ -1,0 +1,6 @@
+peek(): 51779 ns
+_native.state_peek(h, ref) alone: 21174 ns
+4 ctypes Structure field reads: 6986 ns
+StateInfo(...) frozen slots dataclass: 14718 ns
+publish(): 45667 ns
+_native.state_publish(...) alone: 38701 ns

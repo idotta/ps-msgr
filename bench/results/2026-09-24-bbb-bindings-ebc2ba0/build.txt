@@ -1,0 +1,28 @@
+commit: ebc2ba0acc82a9808dcf73a3a0f5a2241b10d516 (origin/main, Examples: a motor-status writer and reader in C, Python and C#)
+built: 2026-09-24, in the build container (docker/build.Dockerfile at this commit, image rebuilt for the run)
+
+C library and packages:
+  docker/run.sh cmake --workflow --preset armhf-release   # 0 warnings; 8/8 CTest tests passed under qemu
+  gcc: arm-linux-gnueabihf-gcc (Debian 14.2.0-19) 14.2.0
+  8e92e058a01d083db9546d975e32e8a87b7fd9b4b0ecca4a3bf30c31023fbc8b  libpsmsgr1_1.0.0_armhf.deb
+  c406b7fbe568f7eee8042fc2b10f0f301d1401f2fc7d2fc513082a7aee6b859a  libpsmsgr-dev_1.0.0_armhf.deb
+  931830bcff8f41bff0f9da8bfede3b06c7ddf08f5ad4d9abe6858966b79bab49  psmsgr-tools_1.0.0_armhf.deb
+
+Python wheel (pure Python, built as in bindings/python/check.sh):
+  dc629b482bce4822f54ea507daa2f03baf3f392e5a0b87f961b1ca998f9672f5  ps_msgr-0.1.0-py3-none-any.whl
+
+C#: scripts/publish.sh in the container. .NET SDK 10.0.401, runtime 10.0.12, ILCompiler 10.0.12
+  (runtime.linux-arm.microsoft.dotnet.ilcompiler). ILCompiler links with clang 19.1.7
+  --target=arm-linux-gnueabihf and no SysRoot, which finds the Debian cross toolchain in /usr
+  (crossbuild-essential-armhf 12.12, libc6-dev-armhf-cross 2.41); -p:ObjCopyName=arm-linux-gnueabihf-objcopy
+  (binutils 2.44) is the only extra property, as in examples/README.md. 0 warnings.
+  Native AOT, -r linux-arm, -c Release:
+    aot-smoke/PsMsgr.AotSmoke                 1387588 bytes  [libm.so.6] [libc.so.6] 
+    aot-smoke-static/PsMsgr.AotSmoke.Static   1387276 bytes  [libm.so.6] [libc.so.6] 
+    agent_cs/PsMsgr.InteropAgent              1386744 bytes  [libm.so.6] [libc.so.6] 
+    MotorWriter/MotorWriter                   1255776 bytes  [libm.so.6] [libc.so.6] 
+    MotorReader/MotorReader                   1189616 bytes  [libm.so.6] [libc.so.6] 
+    percall/PercallCs                         2048080 bytes  [libm.so.6] [libc.so.6] 
+    percall-static/PercallCs.Static           2047848 bytes  [libm.so.6] [libc.so.6] 
+    (*.Static: DirectPInvoke libpsmsgr.so.1 + NativeLibrary build/armhf-release/libpsmsgr.a)
+  JIT, self-contained, -r linux-arm: PsMsgr.Tests (78M), for the xUnit suite; the board has no .NET runtime.

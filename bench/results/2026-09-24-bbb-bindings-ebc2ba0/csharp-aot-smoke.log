@@ -1,0 +1,31 @@
+=== cs/aot-smoke/PsMsgr.AotSmoke: 1387588 bytes, ELF 32-bit LSB pie executable, ARM, NEEDED: [libm.so.6] [libc.so.6] 
+libpsmsgr.so.1 opened (LD_DEBUG=files): 1x
+ok
+# runs 20, failed 0, wall median 130.0 ms, max 131.0 ms, max RSS 2924 KiB
+--- PSMSGR_LIBRARY=/nonexistent:
+bash: line 2:  7481 Aborted                 PSMSGR_LIBRARY=/nonexistent $f > /tmp/o 2>&1
+exit=134
+Unhandled exception. System.TypeInitializationException: A type initializer threw an exception. To determine which type, inspect the InnerException's StackTrace property.
+ ---> System.DllNotFoundException: PsMsgr cannot load /nonexistent (PSMSGR_LIBRARY): /nonexistent: cannot open shared object file: No such file or directory
+--- PSMSGR_LIBRARY=/home/debian/bbb-bindings/build/libpsmsgr.so.1:
+	opening file=/home/debian/bbb-bindings/build/libpsmsgr.so.1 [0]; direct_opencount=1
+	opening file=/home/debian/bbb-bindings/build/libpsmsgr.so.1 [0]; direct_opencount=2
+ok
+=== cs/aot-smoke-static/PsMsgr.AotSmoke.Static: 1387276 bytes, ELF 32-bit LSB pie executable, ARM, NEEDED: [libm.so.6] [libc.so.6] 
+libpsmsgr.so.1 opened (LD_DEBUG=files): 0x
+ok
+# runs 20, failed 0, wall median 128.2 ms, max 133.8 ms, max RSS 2976 KiB
+--- PSMSGR_LIBRARY=/nonexistent:
+exit=134
+bash: line 2:  7629 Aborted                 PSMSGR_LIBRARY=/nonexistent $f > /tmp/o 2>&1
+Unhandled exception. System.TypeInitializationException: A type initializer threw an exception. To determine which type, inspect the InnerException's StackTrace property.
+ ---> System.DllNotFoundException: PsMsgr cannot load /nonexistent (PSMSGR_LIBRARY): /nonexistent: cannot open shared object file: No such file or directory
+--- PSMSGR_LIBRARY=/home/debian/bbb-bindings/build/libpsmsgr.so.1:
+	opening file=/home/debian/bbb-bindings/build/libpsmsgr.so.1 [0]; direct_opencount=1
+ok
+=== baseline /bin/true
+# runs 20, failed 0, wall median 6.3 ms, max 6.6 ms, max RSS 896 KiB
+=== baseline python3 -c pass
+# runs 20, failed 0, wall median 200.9 ms, max 285.9 ms, max RSS 6480 KiB
+=== baseline python: import ps_msgr
+# runs 20, failed 0, wall median 657.0 ms, max 743.0 ms, max RSS 9548 KiB

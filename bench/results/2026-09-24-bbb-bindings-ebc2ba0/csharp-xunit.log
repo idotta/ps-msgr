@@ -1,0 +1,227 @@
+env: DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 (no libicu on the board)
+=== run 1
+The '-ctrf' switch has been deprecated in favor of '-result-ctrf' and will be removed in the next major version
+
+xUnit.net v3 In-Process Runner v4.0.1+8ed8aa354c (32-bit .NET 10.0.12)
+  Discovering: PsMsgr.Tests
+  Discovered:  PsMsgr.Tests
+  Starting:    PsMsgr.Tests
+    PsMsgr.Tests.StateTests.MismatchAndRecreate [STARTING]
+    PsMsgr.Tests.StateTests.MismatchAndRecreate [FINISHED] Time: 1.393s
+    PsMsgr.Tests.StateTests.WaitTimeouts [STARTING]
+    PsMsgr.Tests.StateTests.WaitTimeouts [FINISHED] Time: 0.468s
+    PsMsgr.Tests.StateTests.WaitResumesAfterSignals [STARTING]
+    PsMsgr.Tests.StateTests.WaitResumesAfterSignals [FINISHED] Time: 0.579s
+    PsMsgr.Tests.StateTests.ReceiveBufferFollowsCapacity [STARTING]
+    PsMsgr.Tests.StateTests.ReceiveBufferFollowsCapacity [FINISHED] Time: 0.055s
+    PsMsgr.Tests.StateTests.Unlink [STARTING]
+    PsMsgr.Tests.StateTests.Unlink [FINISHED] Time: 0.025s
+    PsMsgr.Tests.StateTests.LazyReaderAttachesLater [STARTING]
+    PsMsgr.Tests.StateTests.LazyReaderAttachesLater [FINISHED] Time: 0.14s
+    PsMsgr.Tests.StateTests.BeginCommitAbort [STARTING]
+    PsMsgr.Tests.StateTests.BeginCommitAbort [FINISHED] Time: 0.071s
+    PsMsgr.Tests.StateTests.FormatError [STARTING]
+    PsMsgr.Tests.StateTests.FormatError [FINISHED] Time: 0.085s
+    PsMsgr.Tests.StateTests.WriterAlive [STARTING]
+    PsMsgr.Tests.StateTests.WriterAlive [FINISHED] Time: 0.008s
+    PsMsgr.Tests.StateTests.Errors [STARTING]
+    PsMsgr.Tests.StateTests.Errors [FINISHED] Time: 0.053s
+    PsMsgr.Tests.StateTests.PeekTimestamps [STARTING]
+    PsMsgr.Tests.StateTests.PeekTimestamps [FINISHED] Time: 0.159s
+    PsMsgr.Tests.StateTests.CreateThenReuse [STARTING]
+    PsMsgr.Tests.StateTests.CreateThenReuse [FINISHED] Time: 0.172s
+    PsMsgr.Tests.StateTests.WaitFollowsUnlink [STARTING]
+    PsMsgr.Tests.StateTests.WaitFollowsUnlink [FINISHED] Time: 0.143s
+    PsMsgr.Tests.StateTests.WaitCancellation [STARTING]
+    PsMsgr.Tests.StateTests.WaitCancellation [FINISHED] Time: 0.998s
+    PsMsgr.Tests.StateTests.AttachedFlagOncePerAttach [STARTING]
+    PsMsgr.Tests.StateTests.AttachedFlagOncePerAttach [FINISHED] Time: 0.016s
+    PsMsgr.Tests.StateTests.WaitWakesOnPublish [STARTING]
+    PsMsgr.Tests.StateTests.WaitWakesOnPublish [FINISHED] Time: 0.08s
+    PsMsgr.Tests.StateTests.InvalidArguments [STARTING]
+    PsMsgr.Tests.StateTests.InvalidArguments [FINISHED] Time: 0.179s
+    PsMsgr.Tests.StateTests.SystemErrors [STARTING]
+    PsMsgr.Tests.StateTests.SystemErrors [FINISHED] Time: 0.061s
+    PsMsgr.Tests.StateTests.SecondWriterSameProcess [STARTING]
+    PsMsgr.Tests.StateTests.SecondWriterSameProcess [FINISHED] Time: 0.03s
+    PsMsgr.Tests.StateTests.SecondWriterOtherProcess [STARTING]
+    PsMsgr.Tests.StateTests.SecondWriterOtherProcess [FINISHED] Time: 0.126s
+    PsMsgr.Tests.StateTests.HeartbeatChannel [STARTING]
+    PsMsgr.Tests.StateTests.HeartbeatChannel [FINISHED] Time: 0.088s
+    PsMsgr.Tests.StateTests.ReadResultsAndSizes [STARTING]
+    PsMsgr.Tests.StateTests.ReadResultsAndSizes [FINISHED] Time: 0.062s
+    PsMsgr.Tests.StateTests.WaitFollowsRetire [STARTING]
+    PsMsgr.Tests.StateTests.WaitFollowsRetire [FINISHED] Time: 0.139s
+    PsMsgr.Tests.StateTests.UseAfterDispose [STARTING]
+    PsMsgr.Tests.StateTests.UseAfterDispose [FINISHED] Time: 0.063s
+    PsMsgr.Tests.StateTests.GenericRoundTrip [STARTING]
+    PsMsgr.Tests.StateTests.GenericRoundTrip [FINISHED] Time: 0.088s
+    PsMsgr.Tests.StateTests.WaitNotSupportedWithoutNotify [STARTING]
+    PsMsgr.Tests.StateTests.WaitNotSupportedWithoutNotify [FINISHED] Time: 0.012s
+    PsMsgr.Tests.NativeTests.VersionCheck [STARTING]
+    PsMsgr.Tests.NativeTests.VersionCheck [FINISHED] Time: 0.137s
+    PsMsgr.Tests.NativeTests.OptionsInitSetsStructSize [STARTING]
+    PsMsgr.Tests.NativeTests.OptionsInitSetsStructSize [FINISHED] Time: 0.064s
+    PsMsgr.Tests.NativeTests.Constants [STARTING]
+    PsMsgr.Tests.NativeTests.Constants [FINISHED] Time: 0.312s
+    PsMsgr.Tests.NativeTests.StructLayouts [STARTING]
+    PsMsgr.Tests.NativeTests.StructLayouts [FINISHED] Time: 0.493s
+  Finished:    PsMsgr.Tests (ID = 'd905de5b87eb4cc7c004da00ca616cae89582fc875f4c1e32cacdb5459ecfed5')
+=== TEST EXECUTION SUMMARY ===
+   PsMsgr.Tests  Total: 30, Errors: 0, Failed: 0, Skipped: 0, Not Run: 0, Time: 11.574s
+
+real	0m18.103s
+user	0m15.248s
+sys	0m0.880s
+exit=0
+=== run 2
+The '-ctrf' switch has been deprecated in favor of '-result-ctrf' and will be removed in the next major version
+
+xUnit.net v3 In-Process Runner v4.0.1+8ed8aa354c (32-bit .NET 10.0.12)
+  Discovering: PsMsgr.Tests
+  Discovered:  PsMsgr.Tests
+  Starting:    PsMsgr.Tests
+    PsMsgr.Tests.StateTests.MismatchAndRecreate [STARTING]
+    PsMsgr.Tests.StateTests.MismatchAndRecreate [FINISHED] Time: 1.243s
+    PsMsgr.Tests.StateTests.WaitTimeouts [STARTING]
+    PsMsgr.Tests.StateTests.WaitTimeouts [FINISHED] Time: 0.434s
+    PsMsgr.Tests.StateTests.WaitResumesAfterSignals [STARTING]
+    PsMsgr.Tests.StateTests.WaitResumesAfterSignals [FINISHED] Time: 0.591s
+    PsMsgr.Tests.StateTests.ReceiveBufferFollowsCapacity [STARTING]
+    PsMsgr.Tests.StateTests.ReceiveBufferFollowsCapacity [FINISHED] Time: 0.055s
+    PsMsgr.Tests.StateTests.Unlink [STARTING]
+    PsMsgr.Tests.StateTests.Unlink [FINISHED] Time: 0.025s
+    PsMsgr.Tests.StateTests.LazyReaderAttachesLater [STARTING]
+    PsMsgr.Tests.StateTests.LazyReaderAttachesLater [FINISHED] Time: 0.139s
+    PsMsgr.Tests.StateTests.BeginCommitAbort [STARTING]
+    PsMsgr.Tests.StateTests.BeginCommitAbort [FINISHED] Time: 0.068s
+    PsMsgr.Tests.StateTests.FormatError [STARTING]
+    PsMsgr.Tests.StateTests.FormatError [FINISHED] Time: 0.083s
+    PsMsgr.Tests.StateTests.WriterAlive [STARTING]
+    PsMsgr.Tests.StateTests.WriterAlive [FINISHED] Time: 0.007s
+    PsMsgr.Tests.StateTests.Errors [STARTING]
+    PsMsgr.Tests.StateTests.Errors [FINISHED] Time: 0.053s
+    PsMsgr.Tests.StateTests.PeekTimestamps [STARTING]
+    PsMsgr.Tests.StateTests.PeekTimestamps [FINISHED] Time: 0.16s
+    PsMsgr.Tests.StateTests.CreateThenReuse [STARTING]
+    PsMsgr.Tests.StateTests.CreateThenReuse [FINISHED] Time: 0.178s
+    PsMsgr.Tests.StateTests.WaitFollowsUnlink [STARTING]
+    PsMsgr.Tests.StateTests.WaitFollowsUnlink [FINISHED] Time: 0.138s
+    PsMsgr.Tests.StateTests.WaitCancellation [STARTING]
+    PsMsgr.Tests.StateTests.WaitCancellation [FINISHED] Time: 0.998s
+    PsMsgr.Tests.StateTests.AttachedFlagOncePerAttach [STARTING]
+    PsMsgr.Tests.StateTests.AttachedFlagOncePerAttach [FINISHED] Time: 0.016s
+    PsMsgr.Tests.StateTests.WaitWakesOnPublish [STARTING]
+    PsMsgr.Tests.StateTests.WaitWakesOnPublish [FINISHED] Time: 0.087s
+    PsMsgr.Tests.StateTests.InvalidArguments [STARTING]
+    PsMsgr.Tests.StateTests.InvalidArguments [FINISHED] Time: 0.139s
+    PsMsgr.Tests.StateTests.SystemErrors [STARTING]
+    PsMsgr.Tests.StateTests.SystemErrors [FINISHED] Time: 0.027s
+    PsMsgr.Tests.StateTests.SecondWriterSameProcess [STARTING]
+    PsMsgr.Tests.StateTests.SecondWriterSameProcess [FINISHED] Time: 0.031s
+    PsMsgr.Tests.StateTests.SecondWriterOtherProcess [STARTING]
+    PsMsgr.Tests.StateTests.SecondWriterOtherProcess [FINISHED] Time: 0.169s
+    PsMsgr.Tests.StateTests.HeartbeatChannel [STARTING]
+    PsMsgr.Tests.StateTests.HeartbeatChannel [FINISHED] Time: 0.084s
+    PsMsgr.Tests.StateTests.ReadResultsAndSizes [STARTING]
+    PsMsgr.Tests.StateTests.ReadResultsAndSizes [FINISHED] Time: 0.063s
+    PsMsgr.Tests.StateTests.WaitFollowsRetire [STARTING]
+    PsMsgr.Tests.StateTests.WaitFollowsRetire [FINISHED] Time: 0.139s
+    PsMsgr.Tests.StateTests.UseAfterDispose [STARTING]
+    PsMsgr.Tests.StateTests.UseAfterDispose [FINISHED] Time: 0.062s
+    PsMsgr.Tests.StateTests.GenericRoundTrip [STARTING]
+    PsMsgr.Tests.StateTests.GenericRoundTrip [FINISHED] Time: 0.083s
+    PsMsgr.Tests.StateTests.WaitNotSupportedWithoutNotify [STARTING]
+    PsMsgr.Tests.StateTests.WaitNotSupportedWithoutNotify [FINISHED] Time: 0.013s
+    PsMsgr.Tests.NativeTests.VersionCheck [STARTING]
+    PsMsgr.Tests.NativeTests.VersionCheck [FINISHED] Time: 0.134s
+    PsMsgr.Tests.NativeTests.OptionsInitSetsStructSize [STARTING]
+    PsMsgr.Tests.NativeTests.OptionsInitSetsStructSize [FINISHED] Time: 0.064s
+    PsMsgr.Tests.NativeTests.Constants [STARTING]
+    PsMsgr.Tests.NativeTests.Constants [FINISHED] Time: 0.316s
+    PsMsgr.Tests.NativeTests.StructLayouts [STARTING]
+    PsMsgr.Tests.NativeTests.StructLayouts [FINISHED] Time: 0.487s
+  Finished:    PsMsgr.Tests (ID = 'd905de5b87eb4cc7c004da00ca616cae89582fc875f4c1e32cacdb5459ecfed5')
+=== TEST EXECUTION SUMMARY ===
+   PsMsgr.Tests  Total: 30, Errors: 0, Failed: 0, Skipped: 0, Not Run: 0, Time: 11.546s
+
+real	0m17.818s
+user	0m15.040s
+sys	0m1.044s
+exit=0
+=== run 3
+The '-ctrf' switch has been deprecated in favor of '-result-ctrf' and will be removed in the next major version
+
+xUnit.net v3 In-Process Runner v4.0.1+8ed8aa354c (32-bit .NET 10.0.12)
+  Discovering: PsMsgr.Tests
+  Discovered:  PsMsgr.Tests
+  Starting:    PsMsgr.Tests
+    PsMsgr.Tests.StateTests.MismatchAndRecreate [STARTING]
+    PsMsgr.Tests.StateTests.MismatchAndRecreate [FINISHED] Time: 1.239s
+    PsMsgr.Tests.StateTests.WaitTimeouts [STARTING]
+    PsMsgr.Tests.StateTests.WaitTimeouts [FINISHED] Time: 0.447s
+    PsMsgr.Tests.StateTests.WaitResumesAfterSignals [STARTING]
+    PsMsgr.Tests.StateTests.WaitResumesAfterSignals [FINISHED] Time: 0.592s
+    PsMsgr.Tests.StateTests.ReceiveBufferFollowsCapacity [STARTING]
+    PsMsgr.Tests.StateTests.ReceiveBufferFollowsCapacity [FINISHED] Time: 0.056s
+    PsMsgr.Tests.StateTests.Unlink [STARTING]
+    PsMsgr.Tests.StateTests.Unlink [FINISHED] Time: 0.027s
+    PsMsgr.Tests.StateTests.LazyReaderAttachesLater [STARTING]
+    PsMsgr.Tests.StateTests.LazyReaderAttachesLater [FINISHED] Time: 0.141s
+    PsMsgr.Tests.StateTests.BeginCommitAbort [STARTING]
+    PsMsgr.Tests.StateTests.BeginCommitAbort [FINISHED] Time: 0.069s
+    PsMsgr.Tests.StateTests.FormatError [STARTING]
+    PsMsgr.Tests.StateTests.FormatError [FINISHED] Time: 0.081s
+    PsMsgr.Tests.StateTests.WriterAlive [STARTING]
+    PsMsgr.Tests.StateTests.WriterAlive [FINISHED] Time: 0.007s
+    PsMsgr.Tests.StateTests.Errors [STARTING]
+    PsMsgr.Tests.StateTests.Errors [FINISHED] Time: 0.053s
+    PsMsgr.Tests.StateTests.PeekTimestamps [STARTING]
+    PsMsgr.Tests.StateTests.PeekTimestamps [FINISHED] Time: 0.158s
+    PsMsgr.Tests.StateTests.CreateThenReuse [STARTING]
+    PsMsgr.Tests.StateTests.CreateThenReuse [FINISHED] Time: 0.173s
+    PsMsgr.Tests.StateTests.WaitFollowsUnlink [STARTING]
+    PsMsgr.Tests.StateTests.WaitFollowsUnlink [FINISHED] Time: 0.137s
+    PsMsgr.Tests.StateTests.WaitCancellation [STARTING]
+    PsMsgr.Tests.StateTests.WaitCancellation [FINISHED] Time: 1.005s
+    PsMsgr.Tests.StateTests.AttachedFlagOncePerAttach [STARTING]
+    PsMsgr.Tests.StateTests.AttachedFlagOncePerAttach [FINISHED] Time: 0.017s
+    PsMsgr.Tests.StateTests.WaitWakesOnPublish [STARTING]
+    PsMsgr.Tests.StateTests.WaitWakesOnPublish [FINISHED] Time: 0.082s
+    PsMsgr.Tests.StateTests.InvalidArguments [STARTING]
+    PsMsgr.Tests.StateTests.InvalidArguments [FINISHED] Time: 0.138s
+    PsMsgr.Tests.StateTests.SystemErrors [STARTING]
+    PsMsgr.Tests.StateTests.SystemErrors [FINISHED] Time: 0.029s
+    PsMsgr.Tests.StateTests.SecondWriterSameProcess [STARTING]
+    PsMsgr.Tests.StateTests.SecondWriterSameProcess [FINISHED] Time: 0.032s
+    PsMsgr.Tests.StateTests.SecondWriterOtherProcess [STARTING]
+    PsMsgr.Tests.StateTests.SecondWriterOtherProcess [FINISHED] Time: 0.164s
+    PsMsgr.Tests.StateTests.HeartbeatChannel [STARTING]
+    PsMsgr.Tests.StateTests.HeartbeatChannel [FINISHED] Time: 0.085s
+    PsMsgr.Tests.StateTests.ReadResultsAndSizes [STARTING]
+    PsMsgr.Tests.StateTests.ReadResultsAndSizes [FINISHED] Time: 0.062s
+    PsMsgr.Tests.StateTests.WaitFollowsRetire [STARTING]
+    PsMsgr.Tests.StateTests.WaitFollowsRetire [FINISHED] Time: 0.138s
+    PsMsgr.Tests.StateTests.UseAfterDispose [STARTING]
+    PsMsgr.Tests.StateTests.UseAfterDispose [FINISHED] Time: 0.061s
+    PsMsgr.Tests.StateTests.GenericRoundTrip [STARTING]
+    PsMsgr.Tests.StateTests.GenericRoundTrip [FINISHED] Time: 0.084s
+    PsMsgr.Tests.StateTests.WaitNotSupportedWithoutNotify [STARTING]
+    PsMsgr.Tests.StateTests.WaitNotSupportedWithoutNotify [FINISHED] Time: 0.013s
+    PsMsgr.Tests.NativeTests.VersionCheck [STARTING]
+    PsMsgr.Tests.NativeTests.VersionCheck [FINISHED] Time: 0.134s
+    PsMsgr.Tests.NativeTests.OptionsInitSetsStructSize [STARTING]
+    PsMsgr.Tests.NativeTests.OptionsInitSetsStructSize [FINISHED] Time: 0.065s
+    PsMsgr.Tests.NativeTests.Constants [STARTING]
+    PsMsgr.Tests.NativeTests.Constants [FINISHED] Time: 0.312s
+    PsMsgr.Tests.NativeTests.StructLayouts [STARTING]
+    PsMsgr.Tests.NativeTests.StructLayouts [FINISHED] Time: 0.493s
+  Finished:    PsMsgr.Tests (ID = 'd905de5b87eb4cc7c004da00ca616cae89582fc875f4c1e32cacdb5459ecfed5')
+=== TEST EXECUTION SUMMARY ===
+   PsMsgr.Tests  Total: 30, Errors: 0, Failed: 0, Skipped: 0, Not Run: 0, Time: 11.409s
+
+real	0m17.591s
+user	0m15.103s
+sys	0m0.902s
+exit=0
+# runs 1, failed 0, wall median 16515.5 ms, max 16515.5 ms, max RSS 50856 KiB

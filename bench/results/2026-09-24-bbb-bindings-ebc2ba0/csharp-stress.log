@@ -1,0 +1,6 @@
+=== 3 x xUnit suite with a CPU hog (yes > /dev/null, same nice)
+   PsMsgr.Tests  Total: 30, Errors: 0, Failed: 0, Skipped: 0, Not Run: 0, Time: 19.852s
+   PsMsgr.Tests  Total: 30, Errors: 0, Failed: 0, Skipped: 0, Not Run: 0, Time: 19.849s
+   PsMsgr.Tests  Total: 30, Errors: 0, Failed: 0, Skipped: 0, Not Run: 0, Time: 19.878s
+=== 20 x AOT smoke with the hog
+passed 20/20
