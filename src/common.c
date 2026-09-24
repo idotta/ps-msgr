@@ -8,8 +8,7 @@ _Static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
 
 uint32_t psmsgr_version(void)
 {
-    return PSMSGR_VERSION_NUMBER(PSMSGR_VERSION_MAJOR, PSMSGR_VERSION_MINOR,
-                                 PSMSGR_VERSION_PATCH);
+    return PSMSGR_VERSION_NUMBER(PSMSGR_VERSION_MAJOR, PSMSGR_VERSION_MINOR, PSMSGR_VERSION_PATCH);
 }
 
 const char *psmsgr_strerror(int code)

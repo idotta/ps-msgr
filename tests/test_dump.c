@@ -10,13 +10,13 @@
 #include <stdbool.h>
 
 static char **tool_argv;
-static int    tool_argc;
+static int tool_argc;
 
 typedef struct proc {
-    pid_t  pid;
-    int    fd; /* read end of the child's stdout and stderr */
+    pid_t pid;
+    int fd; /* read end of the child's stdout and stderr */
     size_t len;
-    char   out[65536];
+    char out[65536];
 } proc;
 
 static proc run; /* static: too large for the stack under the sanitizers */
@@ -51,7 +51,7 @@ static void proc_start(proc *p, ...)
         _exit(127);
     }
     close(pipefd[1]);
-    p->fd  = pipefd[0];
+    p->fd = pipefd[0];
     p->len = 0;
     p->out[0] = '\0';
 }
@@ -93,12 +93,12 @@ static int proc_wait(proc *p)
 
 #define dump(...) (proc_start(&run, __VA_ARGS__, (const char *)NULL), proc_wait(&run))
 
-#define assert_output(needle)                                                          \
-    do {                                                                               \
-        if (strstr(run.out, (needle)) == NULL) {                                       \
+#define assert_output(needle)                                                    \
+    do {                                                                         \
+        if (strstr(run.out, (needle)) == NULL) {                                 \
             cmocka_print_error("output lacks \"%s\":\n%s\n", (needle), run.out); \
-            fail();                                                                    \
-        }                                                                              \
+            fail();                                                              \
+        }                                                                        \
     } while (0)
 
 /* ---- tests ------------------------------------------------------------------ */
@@ -178,7 +178,8 @@ static void retired_channel(void **state)
     assert_rc(publish_str(w, "hello", NULL), PSMSGR_OK);
     psmsgr_state_writer_close(w);
     uint32_t st = PSMI_STATE_RETIRED;
-    assert_int_equal(raw_write(data_path(CHAN), &st, sizeof st, (off_t)offsetof(psmi_header, state)), 0);
+    assert_int_equal(
+        raw_write(data_path(CHAN), &st, sizeof st, (off_t)offsetof(psmi_header, state)), 0);
 
     assert_int_equal(dump(CHAN), 0);
     assert_output("state         0x00000001 RETIRED");
@@ -196,8 +197,8 @@ static void corrupt_header_exits_1(void **state)
     assert_int_equal(raw_header(CHAN, &good), 0);
 
     static const struct {
-        size_t      off;
-        uint32_t    value;
+        size_t off;
+        uint32_t value;
         const char *message;
     } cases[] = {
         { offsetof(psmi_header, magic), 0x12345678, "bad magic" },
@@ -252,14 +253,15 @@ static void stale_latest_and_odd_seq_are_flagged(void **state)
 
     psmi_header h;
     assert_int_equal(raw_header(CHAN, &h), 0);
-    uint32_t slot   = psmi_latest_slot(h.latest);
-    uint32_t stale  = h.latest + (1u << 4); /* next tag, same slot */
-    uint32_t odd    = 3;
-    uint32_t other  = (slot + 1) % h.slot_count;
-    assert_int_equal(raw_write(data_path(CHAN), &stale, sizeof stale,
-                               (off_t)offsetof(psmi_header, latest)), 0);
+    uint32_t slot = psmi_latest_slot(h.latest);
+    uint32_t stale = h.latest + (1u << 4); /* next tag, same slot */
+    uint32_t odd = 3;
+    uint32_t other = (slot + 1) % h.slot_count;
+    assert_int_equal(
+        raw_write(data_path(CHAN), &stale, sizeof stale, (off_t)offsetof(psmi_header, latest)), 0);
     assert_int_equal(raw_write(data_path(CHAN), &odd, sizeof odd,
-                               (off_t)(PSMI_HEADER_SIZE + (uint64_t)other * h.slot_stride)), 0);
+                               (off_t)(PSMI_HEADER_SIZE + (uint64_t)other * h.slot_stride)),
+                     0);
 
     assert_int_equal(dump(CHAN), 0);
     assert_output("STALE: slot seq 2 (tag 1); readers get BUSY");
@@ -267,8 +269,8 @@ static void stale_latest_and_odd_seq_are_flagged(void **state)
     assert_output("value         channel busy");
 
     uint32_t bad = 5; /* slot 5 of 3 */
-    assert_int_equal(raw_write(data_path(CHAN), &bad, sizeof bad,
-                               (off_t)offsetof(psmi_header, latest)), 0);
+    assert_int_equal(
+        raw_write(data_path(CHAN), &bad, sizeof bad, (off_t)offsetof(psmi_header, latest)), 0);
     assert_int_equal(dump(CHAN), 0);
     assert_output("INVALID: readers get FORMAT");
     assert_output("value         invalid channel format");

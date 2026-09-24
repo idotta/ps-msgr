@@ -20,31 +20,31 @@ typedef struct psmsgr_state_writer psmsgr_state_writer;
 typedef struct psmsgr_state_reader psmsgr_state_reader;
 
 enum {
-    PSMSGR_STATE_RECREATE  = 1u << 0,  /* replace an incompatible existing channel     */
-    PSMSGR_STATE_NO_NOTIFY = 1u << 1,  /* no futex wake per publish; wait() -> NOTSUP */
+    PSMSGR_STATE_RECREATE = 1u << 0,  /* replace an incompatible existing channel     */
+    PSMSGR_STATE_NO_NOTIFY = 1u << 1, /* no futex wake per publish; wait() -> NOTSUP */
 };
 
 enum {
-    PSMSGR_INFO_ATTACHED = 1u << 0,    /* first result from a newly (re)attached file */
+    PSMSGR_INFO_ATTACHED = 1u << 0, /* first result from a newly (re)attached file */
 };
 
 typedef struct psmsgr_state_options {
-    uint32_t    struct_size;   /* set by psmsgr_state_options_init[_sized] */
-    uint32_t    capacity;      /* max payload bytes, 0 .. PSMSGR_STATE_MAX_CAPACITY */
-    uint32_t    slot_count;    /* 2 .. 16; default PSMSGR_STATE_DEFAULT_SLOTS */
-    uint32_t    payload_type;  /* application tag; default 0 */
-    uint32_t    mode;          /* file mode; default 0644 */
-    uint32_t    flags;         /* PSMSGR_STATE_* */
-    const char *dir;           /* NULL: $PSMSGR_DIR, else /dev/shm */
+    uint32_t struct_size;  /* set by psmsgr_state_options_init[_sized] */
+    uint32_t capacity;     /* max payload bytes, 0 .. PSMSGR_STATE_MAX_CAPACITY */
+    uint32_t slot_count;   /* 2 .. 16; default PSMSGR_STATE_DEFAULT_SLOTS */
+    uint32_t payload_type; /* application tag; default 0 */
+    uint32_t mode;         /* file mode; default 0644 */
+    uint32_t flags;        /* PSMSGR_STATE_* */
+    const char *dir;       /* NULL: $PSMSGR_DIR, else /dev/shm */
 } psmsgr_state_options;
 
 /* Result of read/peek. */
 typedef struct psmsgr_state_info {
-    uint32_t generation;    /* change token, never 0 */
-    uint32_t length;        /* payload length */
-    uint64_t timestamp_ns;  /* CLOCK_MONOTONIC at publish */
-    uint32_t flags;         /* PSMSGR_INFO_* */
-    uint32_t reserved;      /* 0 */
+    uint32_t generation;   /* change token, never 0 */
+    uint32_t length;       /* payload length */
+    uint64_t timestamp_ns; /* CLOCK_MONOTONIC at publish */
+    uint32_t flags;        /* PSMSGR_INFO_* */
+    uint32_t reserved;     /* 0 */
 } psmsgr_state_info;
 
 /* Constant properties of an attached channel. */
@@ -52,7 +52,7 @@ typedef struct psmsgr_state_desc {
     uint32_t capacity;
     uint32_t slot_count;
     uint32_t payload_type;
-    uint32_t flags;         /* PSMSGR_STATE_NO_NOTIFY if set on the channel */
+    uint32_t flags; /* PSMSGR_STATE_NO_NOTIFY if set on the channel */
 } psmsgr_state_desc;
 
 /* ---- writer ------------------------------------------------------------ */
@@ -73,8 +73,7 @@ static inline void psmsgr_state_options_init(psmsgr_state_options *opt)
  * opt NULL: psmsgr_state_options_init() defaults.
  * Errors: INVAL, WRITER_EXISTS, MISMATCH, FORMAT,
  *         SYS (e.g. ENOENT: dir missing, ENOSPC: tmpfs full, EACCES, ELOOP: symlink). */
-PSMSGR_API int psmsgr_state_writer_open(const char *name,
-                                        const psmsgr_state_options *opt,
+PSMSGR_API int psmsgr_state_writer_open(const char *name, const psmsgr_state_options *opt,
                                         psmsgr_state_writer **out);
 
 /* Aborts an open begin, releases the lock; the channel and its last value
@@ -83,14 +82,13 @@ PSMSGR_API void psmsgr_state_writer_close(psmsgr_state_writer *w);
 
 /* Copies and publishes a value. generation may be NULL.
  * Errors: TOOBIG, STATE (a begin is open). */
-PSMSGR_API int psmsgr_state_publish(psmsgr_state_writer *w, const void *data,
-                                    uint32_t len, uint32_t *generation);
+PSMSGR_API int psmsgr_state_publish(psmsgr_state_writer *w, const void *data, uint32_t len,
+                                    uint32_t *generation);
 
 /* Zero-copy publish. *buf points at `capacity` writable bytes (32-byte
  * aligned) until commit/abort. Exactly one of commit/abort must follow. */
 PSMSGR_API int psmsgr_state_begin(psmsgr_state_writer *w, void **buf);
-PSMSGR_API int psmsgr_state_commit(psmsgr_state_writer *w, uint32_t len,
-                                   uint32_t *generation);
+PSMSGR_API int psmsgr_state_commit(psmsgr_state_writer *w, uint32_t len, uint32_t *generation);
 PSMSGR_API int psmsgr_state_abort(psmsgr_state_writer *w);
 
 PSMSGR_API uint32_t psmsgr_state_writer_capacity(const psmsgr_state_writer *w);

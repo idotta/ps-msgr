@@ -52,24 +52,24 @@ static const char usage_text[] =
     "  -h, --help\n";
 
 typedef struct config {
-    uint32_t    iterations;
-    uint32_t    warmup;
-    uint32_t    batch;
-    double      seconds;
-    uint32_t    rate;
-    uint32_t    poll_us;
+    uint32_t iterations;
+    uint32_t warmup;
+    uint32_t batch;
+    double seconds;
+    uint32_t rate;
+    uint32_t poll_us;
     const char *base;
-    bool        csv;
-    char        dir[512]; /* private channel directory under base */
+    bool csv;
+    char dir[512]; /* private channel directory under base */
 } config;
 
 static config cfg = {
     .iterations = 100000,
-    .warmup     = 1000,
-    .batch      = 1,
-    .seconds    = 5,
-    .rate       = 500,
-    .poll_us    = 100,
+    .warmup = 1000,
+    .batch = 1,
+    .seconds = 5,
+    .rate = 500,
+    .poll_us = 100,
 };
 
 static pid_t main_pid;
@@ -104,9 +104,9 @@ static void sleep_until(uint64_t t)
  * `cap` samples (all of them, for the uncontended rows). */
 typedef struct samples {
     uint64_t *v;
-    size_t    cap, n;
-    uint64_t  seen, min, max;
-    uint64_t  rng;
+    size_t cap, n;
+    uint64_t seen, min, max;
+    uint64_t rng;
 } samples;
 
 static void samples_init(samples *s, size_t cap)
@@ -151,8 +151,8 @@ static void print_table_header(void)
     if (cfg.csv)
         puts("test,size_bytes,n,min_ns,median_ns,p99_ns,max_ns,busy,missed");
     else
-        printf("%-26s %8s %9s %9s %9s %9s %9s  %s\n", "test", "size", "n", "min", "median",
-               "p99", "max", "notes");
+        printf("%-26s %8s %9s %9s %9s %9s %9s  %s\n", "test", "size", "n", "min", "median", "p99",
+               "max", "notes");
 }
 
 /* One row; every value divided by `per` (operations per sample). `busy` and
@@ -181,8 +181,8 @@ static void print_row(const char *test, uint32_t size, samples *s, uint32_t per,
             printf("%" PRId64, missed);
         putchar('\n');
     } else {
-        printf("%-26s %8s %9" PRIu64 " %9.0f %9.0f %9.0f %9.0f", test, sz, s->seen, min, med,
-               p99, max);
+        printf("%-26s %8s %9" PRIu64 " %9.0f %9.0f %9.0f %9.0f", test, sz, s->seen, min, med, p99,
+               max);
         if (busy >= 0)
             printf("  busy %" PRId64, busy);
         if (missed >= 0)
@@ -276,9 +276,10 @@ static void print_system(void)
     cpuidle_info(buf, sizeof buf);
     printf(fmt, "cpuidle", buf);
     printf(fmt, "dir", cfg.dir);
-    snprintf(buf, sizeof buf, "iterations %" PRIu32 ", warm-up %" PRIu32 ", batch %" PRIu32
-             ", %.1f s at %" PRIu32 " Hz per run", cfg.iterations, cfg.warmup, cfg.batch,
-             cfg.seconds, cfg.rate);
+    snprintf(buf, sizeof buf,
+             "iterations %" PRIu32 ", warm-up %" PRIu32 ", batch %" PRIu32 ", %.1f s at %" PRIu32
+             " Hz per run",
+             cfg.iterations, cfg.warmup, cfg.batch, cfg.seconds, cfg.rate);
     printf(fmt, "settings", buf);
     if (!cfg.csv)
         putchar('\n');
@@ -289,8 +290,8 @@ static void print_system(void)
 typedef struct op_ctx {
     psmsgr_state_writer *w;
     psmsgr_state_reader *r;
-    unsigned char       *buf;
-    uint32_t             size;
+    unsigned char *buf;
+    uint32_t size;
 } op_ctx;
 
 typedef void (*op_fn)(op_ctx *c);
@@ -385,8 +386,8 @@ static psmsgr_state_writer *open_writer(const char *name, uint32_t capacity, uin
     psmsgr_state_options o;
     psmsgr_state_options_init(&o);
     o.capacity = capacity;
-    o.flags    = flags;
-    o.dir      = cfg.dir;
+    o.flags = flags;
+    o.dir = cfg.dir;
     psmsgr_state_writer *w = NULL;
     int rc = psmsgr_state_writer_open(name, &o, &w);
     if (rc != PSMSGR_OK)
@@ -443,7 +444,7 @@ static void bench_uncontended(void)
 
 typedef struct writer_proc {
     pid_t pid;
-    int   fd; /* reads "ready", then the publish count */
+    int fd; /* reads "ready", then the publish count */
 } writer_proc;
 
 /* Publishes at cfg.rate for cfg.seconds in a child process. With `stamp`,
@@ -455,7 +456,7 @@ static writer_proc writer_start(const char *name, uint32_t size, uint32_t flags,
         die("pipe", PSMSGR_E_SYS);
     fflush(NULL);
     pid_t parent = getpid();
-    pid_t pid    = fork();
+    pid_t pid = fork();
     if (pid < 0)
         die("fork", PSMSGR_E_SYS);
     if (pid == 0) {
@@ -467,12 +468,12 @@ static writer_proc writer_start(const char *name, uint32_t size, uint32_t flags,
         if (buf == NULL)
             _exit(1);
         uint64_t count = 0;
-        if (psmsgr_state_publish(w, buf, size, NULL) != PSMSGR_OK
-            || write(p[1], &count, sizeof count) != (ssize_t)sizeof count)
+        if (psmsgr_state_publish(w, buf, size, NULL) != PSMSGR_OK ||
+            write(p[1], &count, sizeof count) != (ssize_t)sizeof count)
             _exit(1);
         uint64_t period = 1000000000u / cfg.rate;
-        uint64_t start  = now_ns();
-        uint64_t end    = start + (uint64_t)(cfg.seconds * 1e9);
+        uint64_t start = now_ns();
+        uint64_t end = start + (uint64_t)(cfg.seconds * 1e9);
         for (uint64_t next = start + period; next < end; next += period) {
             sleep_until(next);
             if (stamp) {

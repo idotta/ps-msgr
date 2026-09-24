@@ -38,18 +38,18 @@ typedef struct psmi_header {
     uint32_t capacity;
     uint32_t payload_type;
     uint32_t config_flags;
-    uint32_t state;      /* atomic */
-    uint32_t latest;     /* atomic */
-    uint32_t notify;     /* atomic; futex word */
+    uint32_t state;  /* atomic */
+    uint32_t latest; /* atomic */
+    uint32_t notify; /* atomic; futex word */
     uint32_t writer_pid;
     uint32_t reserved0;
     uint64_t created_realtime_ns;
-    uint8_t  reserved1[64];
+    uint8_t reserved1[64];
 } psmi_header;
 
 /* Slot header; the payload follows at PSMI_SLOT_HEADER_SIZE. */
 typedef struct psmi_slot {
-    uint32_t seq;        /* atomic; odd = unreadable */
+    uint32_t seq; /* atomic; odd = unreadable */
     uint32_t generation;
     uint64_t timestamp_ns;
     uint32_t length;
@@ -72,8 +72,8 @@ static inline uint32_t psmi_latest_slot(uint32_t latest)
 /* NONE, or an encoding with a slot index below slot_count. */
 static inline int psmi_latest_valid(uint32_t latest, uint32_t slot_count)
 {
-    return latest == PSMI_LATEST_NONE
-           || ((latest >> 31) == 0 && psmi_latest_slot(latest) < slot_count);
+    return latest == PSMI_LATEST_NONE ||
+           ((latest >> 31) == 0 && psmi_latest_slot(latest) < slot_count);
 }
 
 _Static_assert(sizeof(psmi_header) == PSMI_HEADER_SIZE, "header size");

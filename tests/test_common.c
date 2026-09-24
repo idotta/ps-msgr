@@ -7,9 +7,9 @@
 
 static void version_matches_header(void **state)
 {
-    assert_uint_equal(psmsgr_version(), PSMSGR_VERSION_NUMBER(PSMSGR_VERSION_MAJOR,
-                                                             PSMSGR_VERSION_MINOR,
-                                                             PSMSGR_VERSION_PATCH));
+    assert_uint_equal(
+        psmsgr_version(),
+        PSMSGR_VERSION_NUMBER(PSMSGR_VERSION_MAJOR, PSMSGR_VERSION_MINOR, PSMSGR_VERSION_PATCH));
     assert_uint_equal(psmsgr_version() >> 16, PSMSGR_VERSION_MAJOR);
 }
 

@@ -31,8 +31,8 @@
 
 #define HEX_MAX          1024u /* payload bytes shown by --hex */
 #define BUSY_RETRIES     16
-#define WATCH_TIMEOUT_MS 1000  /* also bounds how late an unlink or a dead writer shows */
-#define WATCH_POLL_MS    100   /* NO_NOTIFY channels */
+#define WATCH_TIMEOUT_MS 1000 /* also bounds how late an unlink or a dead writer shows */
+#define WATCH_POLL_MS    100  /* NO_NOTIFY channels */
 
 static const char usage_text[] =
     "usage: psmsgr-dump <name> [--dir D] [--watch] [--hex]\n"
@@ -55,8 +55,8 @@ static const char usage_text[] =
 typedef struct options {
     const char *name;
     const char *dir; /* as given; NULL: the library's default */
-    bool        watch;
-    bool        hex;
+    bool watch;
+    bool hex;
 } options;
 
 static volatile sig_atomic_t stop;
@@ -106,8 +106,8 @@ static void fmt_realtime(char *buf, size_t n, uint64_t ns)
     time_t secs = (time_t)(ns / 1000000000u);
     struct tm tm;
     char date[64];
-    if (localtime_r(&secs, &tm) == NULL
-        || strftime(date, sizeof date, "%Y-%m-%d %H:%M:%S", &tm) == 0) {
+    if (localtime_r(&secs, &tm) == NULL ||
+        strftime(date, sizeof date, "%Y-%m-%d %H:%M:%S", &tm) == 0) {
         snprintf(buf, n, "%" PRIu64 " ns", ns);
         return;
     }
@@ -194,7 +194,7 @@ static void print_latest(uint32_t latest, const psmi_slot *slots, uint32_t slot_
         puts("latest        none (nothing published)");
         return;
     }
-    uint32_t i   = psmi_latest_slot(latest);
+    uint32_t i = psmi_latest_slot(latest);
     uint32_t tag = (latest >> 4) & PSMI_LATEST_TAG_MASK;
     printf("latest        0x%08" PRIx32 ": slot %" PRIu32 ", tag %" PRIu32, latest, i, tag);
     if (!psmi_latest_valid(latest, slot_count)) {
@@ -203,8 +203,8 @@ static void print_latest(uint32_t latest, const psmi_slot *slots, uint32_t slot_
     }
     uint32_t seq = slots[i].seq;
     if ((seq & 1u) != 0 || psmi_latest(i, seq) != latest)
-        printf("  STALE: slot seq %" PRIu32 " (tag %" PRIu32 "); readers get BUSY",
-               seq, (seq >> 1) & PSMI_LATEST_TAG_MASK);
+        printf("  STALE: slot seq %" PRIu32 " (tag %" PRIu32 "); readers get BUSY", seq,
+               (seq >> 1) & PSMI_LATEST_TAG_MASK);
     putchar('\n');
 }
 
@@ -222,8 +222,8 @@ static void print_slots(const psmi_slot *slots, const psmi_header *h, uint32_t l
                  (s->seq & 1u) ? "  odd: being written, or aborted/crashed" : "",
                  s->length > h->capacity ? "  length > capacity" : "",
                  latest != PSMI_LATEST_NONE && psmi_latest_slot(latest) == i ? "  <- latest" : "");
-        printf("%-4" PRIu32 "  %-10" PRIu32 "  %-10" PRIu32 "  %-10" PRIu32 "  %-*s%s\n", i,
-               s->seq, s->generation, s->length, notes[0] != '\0' ? 10 : 0, age, notes);
+        printf("%-4" PRIu32 "  %-10" PRIu32 "  %-10" PRIu32 "  %-10" PRIu32 "  %-*s%s\n", i, s->seq,
+               s->generation, s->length, notes[0] != '\0' ? 10 : 0, age, notes);
     }
 }
 
@@ -263,7 +263,8 @@ static int dump_raw(const char *path)
     /* The header copy is older than the slots read below; reread `latest`
      * just before them to keep the snapshot's window small. */
     uint32_t latest = h.latest;
-    if (pread(fd, &latest, sizeof latest, (off_t)offsetof(psmi_header, latest)) != (ssize_t)sizeof latest)
+    if (pread(fd, &latest, sizeof latest, (off_t)offsetof(psmi_header, latest)) !=
+        (ssize_t)sizeof latest)
         goto short_read;
     for (uint32_t i = 0; i < h.slot_count; ++i) {
         off_t off = (off_t)(PSMI_HEADER_SIZE + (uint64_t)i * h.slot_stride);
@@ -366,11 +367,11 @@ static int dump(psmsgr_state_reader *r, const options *o, const char *path)
 
 /* What a redraw depends on, apart from the ages. */
 typedef struct watch_key {
-    dev_t    dev;
-    ino_t    ino;
-    int      peek_rc;
+    dev_t dev;
+    ino_t ino;
+    int peek_rc;
     uint32_t generation;
-    int      alive;
+    int alive;
 } watch_key;
 
 static watch_key watch_key_of(psmsgr_state_reader *r, const char *path)
@@ -382,16 +383,16 @@ static watch_key watch_key_of(psmsgr_state_reader *r, const char *path)
         k.ino = st.st_ino;
     }
     psmsgr_state_info info;
-    k.peek_rc    = peek(r, &info);
+    k.peek_rc = peek(r, &info);
     k.generation = k.peek_rc == PSMSGR_OK ? info.generation : 0;
-    k.alive      = psmsgr_state_writer_alive(r);
+    k.alive = psmsgr_state_writer_alive(r);
     return k;
 }
 
 static bool watch_key_equal(const watch_key *a, const watch_key *b)
 {
-    return a->dev == b->dev && a->ino == b->ino && a->peek_rc == b->peek_rc
-           && a->generation == b->generation && a->alive == b->alive;
+    return a->dev == b->dev && a->ino == b->ino && a->peek_rc == b->peek_rc &&
+           a->generation == b->generation && a->alive == b->alive;
 }
 
 static void sleep_ms(unsigned ms)
