@@ -58,7 +58,8 @@ directory under `/dev/shm` (or `--dir`), which is removed at exit.
 ## What it reports
 
 The header records the kernel, CPU, board, CPU frequency governor and
-current frequency, and the clocksource. Then one row per measurement, in
+current frequency, the clocksource, and the cpuidle driver, governor and
+states of cpu0 (disabled ones marked). Then one row per measurement, in
 ns per operation: min, median, p99 and max.
 
 | Row | What it measures |
@@ -70,9 +71,9 @@ ns per operation: min, median, p99 and max.
 | `psmsgr_now_ns` | Per call, through the library. |
 | `publish`, `publish NO_NOTIFY` | Uncontended, per payload size. The difference is the `FUTEX_WAKE` that a notifying channel makes on every publish. |
 | `read`, `peek` | Uncontended, per payload size, reader and writer in one process. |
-| `read, writer active` | A reader polling in a tight loop while another process publishes at `--rate`. `busy` counts `PSMSGR_E_BUSY` results. |
+| `read (writer active)` | A reader polling in a tight loop while another process publishes at `--rate`. `busy` counts `PSMSGR_E_BUSY` results. |
 | `wait wake-up` | The writer stamps `psmsgr_now_ns()` into the payload just before publishing; the reader blocks in `psmsgr_state_wait`, reads, and subtracts the stamp. Includes the publish, the futex wake, scheduling and the read. |
-| `poll wake-up, N us` | The same on a `NO_NOTIFY` channel: the reader peeks every `--poll-us` instead of waiting. |
+| `poll wake-up (N us)` | The same on a `NO_NOTIFY` channel: the reader peeks every `--poll-us` instead of waiting. |
 
 `missed` counts publishes the reader never saw, which is expected when a
 wake-up takes longer than the publish period.

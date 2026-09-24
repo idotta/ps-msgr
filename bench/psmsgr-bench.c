@@ -217,6 +217,29 @@ static void read_line(const char *path, const char *prefix, char *out, size_t n)
     fclose(f);
 }
 
+/* "driver/governor: state, state (disabled), ..." for cpu0. The wake-up rows
+ * depend on the deep idle states' exit latency more than on anything else. */
+static void cpuidle_info(char *out, size_t n)
+{
+    const char *base = "/sys/devices/system/cpu";
+    char path[128], drv[64], gov[64], name[64], off[16];
+    snprintf(path, sizeof path, "%s/cpuidle/current_driver", base);
+    read_line(path, NULL, drv, sizeof drv);
+    snprintf(path, sizeof path, "%s/cpuidle/current_governor", base);
+    read_line(path, NULL, gov, sizeof gov);
+    size_t len = (size_t)snprintf(out, n, "%s/%s", drv, gov);
+    for (int i = 0; len < n; ++i) {
+        snprintf(path, sizeof path, "%s/cpu0/cpuidle/state%d/name", base, i);
+        read_line(path, NULL, name, sizeof name);
+        if (strcmp(name, "n/a") == 0)
+            break;
+        snprintf(path, sizeof path, "%s/cpu0/cpuidle/state%d/disable", base, i);
+        read_line(path, NULL, off, sizeof off);
+        len += (size_t)snprintf(out + len, n - len, "%s %s%s", i == 0 ? ":" : ",", name,
+                                strcmp(off, "1") == 0 ? " (disabled)" : "");
+    }
+}
+
 static void print_system(void)
 {
     struct utsname u;
@@ -250,6 +273,8 @@ static void print_system(void)
     snprintf(buf, sizeof buf, "%s, %s", gov, freq);
     printf(fmt, "governor", buf);
     printf(fmt, "clocksource", clk);
+    cpuidle_info(buf, sizeof buf);
+    printf(fmt, "cpuidle", buf);
     printf(fmt, "dir", cfg.dir);
     snprintf(buf, sizeof buf, "iterations %" PRIu32 ", warm-up %" PRIu32 ", batch %" PRIu32
              ", %.1f s at %" PRIu32 " Hz per run", cfg.iterations, cfg.warmup, cfg.batch,
@@ -521,7 +546,7 @@ static void bench_contended(void)
             t0 = t1;
         }
         (void)writer_finish(&wp);
-        print_row("read, writer active", size, &s, 1, busy, -1);
+        print_row("read (writer active)", size, &s, 1, busy, -1);
         free(s.v);
         psmsgr_state_reader_close(r);
         free(buf);
@@ -587,7 +612,7 @@ static void bench_wake(bool notify)
     if (notify)
         snprintf(test, sizeof test, "wait wake-up");
     else
-        snprintf(test, sizeof test, "poll wake-up, %" PRIu32 " us", cfg.poll_us);
+        snprintf(test, sizeof test, "poll wake-up (%" PRIu32 " us)", cfg.poll_us);
     print_row(test, size, &s, 1, -1, missed);
     free(s.v);
     psmsgr_state_reader_close(r);
