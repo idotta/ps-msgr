@@ -32,6 +32,14 @@ Status: **draft**. Protocol semantics are defined in
   never writes past the end of an older caller's struct. It forwards to an
   exported `*_init_sized(opt, size)`, which bindings call with the size of
   their own struct.
+- Structs the library fills (*out*) and that may grow get the same
+  treatment: an exported `*_sized(..., size)` writes only the first `size`
+  bytes and zeroes any beyond the library's own struct, and a `static
+  inline` wrapper passes the caller's `sizeof`. New fields are appended and
+  read as 0 from an older library, so 0 must mean "unknown". This applies to
+  `psmsgr_state_desc`. `psmsgr_state_info` is filled on every `read` and
+  `peek` and stays fixed at 24 bytes; it grows only through its unused
+  `flags` bits and `reserved`.
 
 ## `<psmsgr/psmsgr.h>`
 
@@ -109,7 +117,8 @@ typedef struct psmsgr_state_info {
     uint32_t reserved;      /* 0 */
 } psmsgr_state_info;
 
-/* Constant properties of an attached channel. */
+/* Constant properties of an attached channel. Filled by
+ * psmsgr_state_describe[_sized]; a field the library doesn't know reads as 0. */
 typedef struct psmsgr_state_desc {
     uint32_t capacity;
     uint32_t slot_count;
@@ -186,8 +195,16 @@ int  psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generation,
  * reattaches if the file was replaced behind the library's back. */
 int  psmsgr_state_writer_alive(psmsgr_state_reader *r);
 
-/* Constant channel properties. OK | NODATA (not attached) | FORMAT | SYS. */
-int  psmsgr_state_describe(psmsgr_state_reader *r, psmsgr_state_desc *desc);
+/* Constant channel properties, writing only the first `size` bytes of *desc
+ * (zeroing any beyond the library's own struct).
+ * OK | NODATA (not attached) | INVAL (size 0) | FORMAT | SYS. */
+int  psmsgr_state_describe_sized(psmsgr_state_reader *r, psmsgr_state_desc *desc,
+                                 uint32_t size);
+
+static inline int psmsgr_state_describe(psmsgr_state_reader *r, psmsgr_state_desc *desc)
+{
+    return psmsgr_state_describe_sized(r, desc, (uint32_t)sizeof *desc);
+}
 ```
 
 ### Management

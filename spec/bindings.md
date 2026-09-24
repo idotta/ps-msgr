@@ -50,7 +50,8 @@ The rules that apply to both:
   setuptools.
 - Every C function is declared with explicit `argtypes` and `restype`, and
   the three structs are mirrored as `ctypes.Structure`. Options are set up
-  with `psmsgr_state_options_init_sized(opt, sizeof(opt))`. The binding's
+  with `psmsgr_state_options_init_sized(opt, sizeof(opt))`, and `describe`
+  calls `psmsgr_state_describe_sized(r, desc, sizeof(desc))`. The binding's
   tests compare every size, offset and constant with a helper compiled from
   the C headers (`tests/interop_helper.c`).
 - Loading: `ctypes` opens `$PSMSGR_LIBRARY` if set, else `libpsmsgr.so.1`.
@@ -195,7 +196,8 @@ Rules that keep it that way:
   strings. The three structs are mirrored with `[StructLayout(Sequential)]`,
   and the tests compare their sizes and offsets, and every constant, with
   `tests/interop_helper layout`. Options are set up with
-  `psmsgr_state_options_init_sized(&opt, sizeof(opt))`.
+  `psmsgr_state_options_init_sized(&opt, sizeof(opt))`, and `Describe` calls
+  `psmsgr_state_describe_sized(r, &desc, sizeof(desc))`.
   - The binding encodes strings to NUL-terminated UTF-8 itself, only in
     `Open` and `Unlink` (not the hot path).
   - Native handles live in `SafeHandle` subclasses. The P/Invoke signatures

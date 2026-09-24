@@ -264,7 +264,7 @@ class StateReader:
     def _fit(self, h: Any, need: int = 0) -> None:
         """Resizes the receive buffer to the channel's capacity."""
         self._recheck = False
-        rc = _native.state_describe(h, self._desc_ref)
+        rc = _native.state_describe_sized(h, self._desc_ref, sizeof(self._desc))
         if rc == _native.OK:
             size = self._desc.capacity
         elif rc == _native.E_NODATA:
@@ -387,7 +387,7 @@ class StateReader:
 
     def describe(self) -> ChannelDesc | None:
         """The attached channel's constant properties; None if not attached."""
-        rc = _native.state_describe(self._handle(), self._desc_ref)
+        rc = _native.state_describe_sized(self._handle(), self._desc_ref, sizeof(self._desc))
         if rc == _native.OK:
             d = self._desc
             return ChannelDesc(

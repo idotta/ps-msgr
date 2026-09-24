@@ -897,19 +897,25 @@ int psmsgr_state_peek(psmsgr_state_reader *r, psmsgr_state_info *info)
     return rc;
 }
 
-int psmsgr_state_describe(psmsgr_state_reader *r, psmsgr_state_desc *desc)
+int psmsgr_state_describe_sized(psmsgr_state_reader *r, psmsgr_state_desc *desc, uint32_t size)
 {
-    if (r == NULL || desc == NULL)
+    if (r == NULL || desc == NULL || size == 0)
         return PSMSGR_E_INVAL;
     int rc = reader_sync(r);
     if (rc != PSMSGR_OK)
         return rc;
-    *desc = (psmsgr_state_desc){
+    const psmsgr_state_desc d = {
         .capacity = r->capacity,
         .slot_count = r->slot_count,
         .payload_type = r->payload_type,
         .flags = (r->config_flags & PSMI_CONFIG_NO_NOTIFY) ? PSMSGR_STATE_NO_NOTIFY : 0,
     };
+    if (size <= sizeof d) {
+        memcpy(desc, &d, size);
+    } else { /* a newer caller: fields this library doesn't know read as 0 */
+        memcpy(desc, &d, sizeof d);
+        memset((unsigned char *)desc + sizeof d, 0, size - sizeof d);
+    }
     return PSMSGR_OK;
 }
 

@@ -163,7 +163,9 @@ state_read = _fn(
 state_peek = _fn(_fast, "psmsgr_state_peek", c_int, ReaderPtr, POINTER(StateInfo))
 state_wait = _fn(_blocking, "psmsgr_state_wait", c_int, ReaderPtr, c_uint32, c_int32)
 state_writer_alive = _fn(_blocking, "psmsgr_state_writer_alive", c_int, ReaderPtr)
-state_describe = _fn(_fast, "psmsgr_state_describe", c_int, ReaderPtr, POINTER(StateDesc))
+state_describe_sized = _fn(
+    _fast, "psmsgr_state_describe_sized", c_int, ReaderPtr, POINTER(StateDesc), c_uint32
+)
 state_unlink = _fn(_blocking, "psmsgr_state_unlink", c_int, c_char_p, c_char_p)
 
 # Runs pending Python signal handlers; raises what a handler raised.

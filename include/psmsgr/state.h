@@ -47,7 +47,8 @@ typedef struct psmsgr_state_info {
     uint32_t reserved;     /* 0 */
 } psmsgr_state_info;
 
-/* Constant properties of an attached channel. */
+/* Constant properties of an attached channel. Filled by
+ * psmsgr_state_describe[_sized]; a field the library doesn't know reads as 0. */
 typedef struct psmsgr_state_desc {
     uint32_t capacity;
     uint32_t slot_count;
@@ -122,8 +123,18 @@ PSMSGR_API int psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generatio
  * reattaches if the file was replaced behind the library's back. */
 PSMSGR_API int psmsgr_state_writer_alive(psmsgr_state_reader *r);
 
-/* Constant channel properties. OK | NODATA (not attached) | FORMAT | SYS. */
-PSMSGR_API int psmsgr_state_describe(psmsgr_state_reader *r, psmsgr_state_desc *desc);
+/* Constant channel properties, writing only the first `size` bytes of *desc
+ * (zeroing any beyond the library's own struct). Bindings call it with their
+ * struct's size; C callers use psmsgr_state_describe.
+ * OK | NODATA (not attached) | INVAL (size 0) | FORMAT | SYS. */
+PSMSGR_API int psmsgr_state_describe_sized(psmsgr_state_reader *r, psmsgr_state_desc *desc,
+                                           uint32_t size);
+
+/* Inline so that the size is the caller's sizeof, not the loaded library's. */
+static inline int psmsgr_state_describe(psmsgr_state_reader *r, psmsgr_state_desc *desc)
+{
+    return psmsgr_state_describe_sized(r, desc, (uint32_t)sizeof *desc);
+}
 
 /* ---- management -------------------------------------------------------- */
 
