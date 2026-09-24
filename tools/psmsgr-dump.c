@@ -234,8 +234,8 @@ static void print_slots(const psmi_slot *slots, const psmi_header *h, uint32_t l
     }
 }
 
-/* Prints the raw view of the data file. Returns 0 or EXIT_INVALID; sets
- * `*read_ok` if the whole view was read, even if `latest` is invalid. */
+/* Prints the raw view of the data file. Returns 0 or EXIT_INVALID. `*read_ok`
+ * is true iff the whole view was read, even if `latest` is invalid. */
 static int dump_raw(const char *path, bool *read_ok)
 {
     *read_ok = false;

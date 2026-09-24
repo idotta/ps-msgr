@@ -267,6 +267,14 @@ static void stale_latest_and_odd_seq_are_flagged(void **state)
     assert_output("STALE: slot seq 2 (tag 1); readers get BUSY");
     assert_output("odd: being written, or aborted/crashed");
     assert_output("value         channel busy");
+}
+
+static void out_of_range_latest_is_invalid(void **state)
+{
+    psmsgr_state_writer *w = NULL;
+    assert_rc(open_writer(CHAN, 64, 3, 0, &w), PSMSGR_OK);
+    assert_rc(publish_str(w, "hello", NULL), PSMSGR_OK);
+    psmsgr_state_writer_close(w);
 
     uint32_t bad = 5; /* slot 5 of 3 */
     assert_int_equal(
@@ -385,6 +393,7 @@ int main(int argc, char **argv)
         TEST(retired_channel),
         TEST(corrupt_header_exits_1),
         TEST(stale_latest_and_odd_seq_are_flagged),
+        TEST(out_of_range_latest_is_invalid),
         TEST(oversized_latest_length_is_invalid),
         TEST(hex_dumps_the_latest_payload),
         TEST(watch_with_notify),
