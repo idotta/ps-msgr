@@ -20,6 +20,7 @@ Status: **specification draft**, not implemented yet. See [`spec/`](spec/README.
 | `spec/` | Channel format, protocol, APIs, build and test requirements |
 | `include/`, `src/`, `tests/`, `cmake/` | `libpsmsgr`: headers, implementation, C tests, build support |
 | `tools/` | `psmsgr-dump`: inspect a channel |
+| `bench/` | `psmsgr-bench`: latency on the target ([how to run it](bench/README.md)) |
 | `bindings/python/` | `ps_msgr` (ctypes binding) |
 | `bindings/csharp/` | `PsMsgr` (P/Invoke binding) |
 | `docker/` | Build container and `run.sh` |
