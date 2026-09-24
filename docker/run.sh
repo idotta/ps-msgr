@@ -9,6 +9,7 @@
 #
 # PSMSGR_BUILD_IMAGE overrides the image tag (default: psmsgr-build).
 # PSMSGR_REBUILD_IMAGE=1 forces a rebuild of the image.
+# PSMSGR_TORTURE_SECONDS, if set, is passed through to the container.
 set -eu
 
 repo=$(cd "$(dirname "$0")/.." && pwd -P)
@@ -31,6 +32,7 @@ if [ -t 0 ] && [ -t 1 ]; then tty=-it; fi
 exec docker run --rm $tty \
     --user "$(id -u):$(id -g)" \
     --env HOME=/tmp \
+    --env PSMSGR_TORTURE_SECONDS \
     --volume "$repo:/src" \
     --workdir "$workdir" \
     "$image" "$@"
