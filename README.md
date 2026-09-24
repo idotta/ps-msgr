@@ -22,4 +22,20 @@ Status: **specification draft**, not implemented yet. See [`spec/`](spec/README.
 | `python/` | `ps_msgr` (ctypes binding) |
 | `csharp/` | `PsMsgr` (P/Invoke binding) |
 
+## Building
+
+All builds run in a Debian trixie container (`docker/build.Dockerfile`),
+the same one CI uses. `docker/run.sh` builds the image on first use and runs
+a command in it with the repository mounted:
+
+```sh
+cd c
+../docker/run.sh cmake --workflow --preset dev            # host: debug, ASan+UBSan, tests
+../docker/run.sh cmake --workflow --preset armhf          # BeagleBone Black: tests under qemu
+../docker/run.sh cmake --workflow --preset armhf-release  # + libpsmsgr1/-dev .deb packages
+```
+
+Presets: `dev`, `dev-clang`, `tsan`, `release`, `armhf` and `armhf-release`.
+See [`spec/build-and-test.md`](spec/build-and-test.md).
+
 License: Apache-2.0.

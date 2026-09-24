@@ -1,0 +1,10 @@
+prefix=${pcfiledir}/@PSMSGR_PC_PREFIX_REL@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: psmsgr
+Description: @PROJECT_DESCRIPTION@
+URL: @PROJECT_HOMEPAGE_URL@
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -lpsmsgr
+Cflags: -I${includedir}

@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  c:
+    name: c (${{ matrix.preset }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [dev, dev-clang, tsan, release, armhf, armhf-release]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build container
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          file: docker/build.Dockerfile
+          tags: psmsgr-build
+          load: true
+          cache-from: type=gha,scope=psmsgr-build
+          cache-to: type=gha,mode=max,scope=psmsgr-build
+
+      # ThreadSanitizer cannot map its shadow memory with the runner's
+      # default ASLR entropy.
+      - name: Reduce ASLR entropy for TSan
+        if: matrix.preset == 'tsan'
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Configure, build, test (and package)
+        working-directory: c
+        run: ../docker/run.sh cmake --workflow --preset ${{ matrix.preset }}
+
+      - name: Upload packages
+        if: endsWith(matrix.preset, 'release')
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.preset }}
+          path: c/build/${{ matrix.preset }}/*.deb
+          if-no-files-found: error
