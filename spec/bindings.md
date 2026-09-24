@@ -90,32 +90,75 @@ encoding is up to the application: `struct`, `ctypes.Structure`,
 
 ## C# — `PsMsgr`
 
-- The library targets **`netstandard2.1`**, so the same package runs on
-  .NET Core 3.x / .NET 5+ (use the current LTS runtime on the device), Mono
-  6.4+ (Debian's `mono-runtime` on armhf) and Unity. It is built with
-  `LangVersion` `latest`, `Nullable` `enable` and `AllowUnsafeBlocks`.
-  Compiler attributes that `netstandard2.1` lacks (`IsExternalInit` for
-  records and `init`) are defined `internal` in the assembly.
+- Target frameworks: **`netstandard2.1;net8.0`**.
+  - `netstandard2.1` covers .NET Core 3.x / .NET 5+, Mono 6.4+ (Debian's
+    `mono-runtime` on armhf) and Unity.
+  - `net8.0` exists so that the trim/AOT analyzers can run
+    (`IsAotCompatible` requires a `net7.0+` target; on `netstandard2.1` the
+    SDK only warns that analysis isn't possible). .NET 8+ consumers pick this
+    build.
+  - The public API MUST be identical across both targets. Differences are
+    internal and kept behind `#if NET8_0_OR_GREATER`.
+  - Built with `LangVersion` `latest`, `Nullable` `enable` and
+    `AllowUnsafeBlocks`. Compiler attributes that `netstandard2.1` lacks
+    (`IsExternalInit` for records and `init`) are defined `internal` for that
+    target only.
+
+### Native AOT and trimming
+
+The library MUST be trim-safe and Native-AOT-compatible, and CI proves it
+(build-and-test.md):
+
+- `IsAotCompatible=true` on the `net8.0` target, which implies `IsTrimmable`,
+  plus the trim, AOT and single-file analyzers. Their warnings (`IL2xxx`,
+  `IL3xxx`) are errors.
+- `IsTrimmable=true` on the `netstandard2.1` target as well.
+- No reflection, `dynamic`, `Type`-based marshalling
+  (`Marshal.SizeOf(Type)`, `Marshal.PtrToStructure(IntPtr, Type)`),
+  `Activator`, `Expression`, `Reflection.Emit` or runtime-generated code.
+  Generic payload helpers are constrained to `unmanaged` and use
+  `sizeof(T)`, `Unsafe.As` and `MemoryMarshal`. These are resolved at compile
+  time for every instantiation the app uses.
+- No P/Invoke callbacks or delegates. The C API has none, and it MUST NOT
+  grow any that the binding would need.
+- On `net8.0`, `[assembly: DisableRuntimeMarshalling]` guarantees that no
+  signature needs a marshalling stub.
+- Native AOT on the BeagleBone Black requires **.NET 9 or later**, because
+  linux-arm (32-bit) became a Native AOT target only in .NET 9. Use the
+  current LTS runtime. .NET 8 AOT covers only x64/Arm64 development hosts.
+- **Static linking (MAY):** an AOT app can link `libpsmsgr.a` into its
+  executable with `<DirectPInvoke Include="libpsmsgr.so.1" />` and
+  `<NativeLibrary Include="…/libpsmsgr.a" />`, so no `.so` needs deploying on
+  the device. This scenario is covered by the AOT smoke test.
+
+### Native interop
+
 - P/Invoke uses `[DllImport("libpsmsgr.so.1")]` with the versioned name
-  hard-coded and **blittable signatures only**: pointers, integers, and
-  `byte*` for strings. The binding encodes strings to NUL-terminated UTF-8
-  itself (`Open`/`Unlink` only, not the hot path). Hot-path calls therefore
-  need no marshalling stub, which is also what `LibraryImport` would give on
-  `net7.0+`.
-- `PSMSGR_LIBRARY` override: `NativeLibrary` isn't part of `netstandard2.1`.
-  Instead, the static constructor of the interop class calls
+  hard-coded, on both targets (one source, and supported by Native AOT), and
+  **blittable signatures only**: raw pointers, integers, and `byte*` for
+  strings.
+  - The binding encodes strings to NUL-terminated UTF-8 itself, only in
+    `Open` and `Unlink` (not the hot path).
+  - Native handles live in `SafeHandle` subclasses. The P/Invoke signatures
+    take the raw pointer (`DangerousGetHandle()`), and the wrapper checks for
+    disposal first. Wrapper objects are not thread-safe, which matches the C
+    API contract, so this is sound, and it avoids SafeHandle marshalling on
+    the hot path.
+  - Calls that can return `PSMSGR_E_SYS` use `SetLastError = true`. `errno`
+    is read with `Marshal.GetLastWin32Error()`, which works on Unix and in
+    AOT.
+- `PSMSGR_LIBRARY` override: `NativeLibrary` isn't available on
+  `netstandard2.1`, and isn't needed on `net8.0` either. The static
+  constructor of the interop class calls
   `dlopen($PSMSGR_LIBRARY, RTLD_NOW | RTLD_GLOBAL)` through
   `[DllImport("libdl.so.2")]` when the variable is set. glibc reuses an
   already-loaded library whose SONAME matches a later `dlopen` of that name,
-  so the `DllImport` resolves to the preloaded copy. Without the variable,
-  the normal search path applies (`LD_LIBRARY_PATH`, `ld.so.cache`).
+  so the `DllImport` resolves to the preloaded copy. This works identically
+  under JIT and Native AOT. Without the variable, the normal search path
+  applies (`LD_LIBRARY_PATH`, `ld.so.cache`).
 - The NuGet package MAY bundle `runtimes/linux-arm/native/libpsmsgr.so.1` and
   `runtimes/linux-x64/native/libpsmsgr.so.1` (for development). .NET Core
   honors these; Mono does not, so on Mono the library comes from the system.
-- Multi-targeting `netstandard2.1;net8.0` (for `LibraryImport`,
-  `NativeLibrary`, `UnixFileMode`) is allowed later, if something needs it.
-  The public API MUST stay identical across targets.
-- Native handles are wrapped in `SafeHandle` subclasses.
 
 ```csharp
 namespace PsMsgr;
