@@ -271,8 +271,29 @@ static void stale_latest_and_odd_seq_are_flagged(void **state)
     uint32_t bad = 5; /* slot 5 of 3 */
     assert_int_equal(
         raw_write(data_path(CHAN), &bad, sizeof bad, (off_t)offsetof(psmi_header, latest)), 0);
-    assert_int_equal(dump(CHAN), 0);
+    assert_int_equal(dump(CHAN), 1);
     assert_output("INVALID: readers get FORMAT");
+    assert_output("value         invalid channel format");
+}
+
+static void oversized_latest_length_is_invalid(void **state)
+{
+    psmsgr_state_writer *w = NULL;
+    assert_rc(open_writer(CHAN, 64, 3, 0, &w), PSMSGR_OK);
+    assert_rc(publish_str(w, "hello", NULL), PSMSGR_OK);
+    psmsgr_state_writer_close(w);
+
+    psmi_header h;
+    assert_int_equal(raw_header(CHAN, &h), 0);
+    uint32_t length = h.capacity + 1;
+    off_t slot = (off_t)(PSMI_HEADER_SIZE + (uint64_t)psmi_latest_slot(h.latest) * h.slot_stride);
+    assert_int_equal(raw_write(data_path(CHAN), &length, sizeof length,
+                               slot + (off_t)offsetof(psmi_slot, length)),
+                     0);
+
+    assert_int_equal(dump(CHAN), 1);
+    assert_output("INVALID: length > capacity; readers get FORMAT");
+    assert_output("length > capacity  <- latest");
     assert_output("value         invalid channel format");
 }
 
@@ -364,6 +385,7 @@ int main(int argc, char **argv)
         TEST(retired_channel),
         TEST(corrupt_header_exits_1),
         TEST(stale_latest_and_odd_seq_are_flagged),
+        TEST(oversized_latest_length_is_invalid),
         TEST(hex_dumps_the_latest_payload),
         TEST(watch_with_notify),
         TEST(watch_polls_without_notify),

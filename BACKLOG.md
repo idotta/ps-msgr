@@ -48,10 +48,6 @@ process requires them.
     running.
   - Python: there is no way to stop a thread blocked in
     `wait(timeout=None)`.
-- [ ] **`psmsgr-dump` exits 0 for an invalid `latest`.**
-  - `tools/psmsgr-dump.c:201` prints "INVALID: readers get FORMAT", but `:276`
-    still sets `rc = 0`, and `tests/test_dump.c:273` asserts 0.
-  - `spec/c-api.md:267` says exit status 1 for an invalid channel.
 - [ ] **`psmsgr-bench` heap overflow on 32-bit.** `--iterations` accepts up
   to `UINT32_MAX` (`bench/psmsgr-bench.c:671`), and `malloc(cap * sizeof
   *s->v)` (`:115`) wraps `size_t` above 2²⁹ samples. Cap the value or check

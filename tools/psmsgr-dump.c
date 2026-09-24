@@ -188,24 +188,31 @@ static void print_header(const psmi_header *h)
     printf("created       %s\n", created);
 }
 
-static void print_latest(uint32_t latest, const psmi_slot *slots, uint32_t slot_count)
+/* Returns false if readers get FORMAT from this `latest`. */
+static bool print_latest(uint32_t latest, const psmi_slot *slots, const psmi_header *h)
 {
     if (latest == PSMI_LATEST_NONE) {
         puts("latest        none (nothing published)");
-        return;
+        return true;
     }
     uint32_t i = psmi_latest_slot(latest);
     uint32_t tag = (latest >> 4) & PSMI_LATEST_TAG_MASK;
     printf("latest        0x%08" PRIx32 ": slot %" PRIu32 ", tag %" PRIu32, latest, i, tag);
-    if (!psmi_latest_valid(latest, slot_count)) {
+    if (!psmi_latest_valid(latest, h->slot_count)) {
         puts("  INVALID: readers get FORMAT");
-        return;
+        return false;
     }
+    bool ok = true;
     uint32_t seq = slots[i].seq;
-    if ((seq & 1u) != 0 || psmi_latest(i, seq) != latest)
+    if ((seq & 1u) != 0 || psmi_latest(i, seq) != latest) {
         printf("  STALE: slot seq %" PRIu32 " (tag %" PRIu32 "); readers get BUSY", seq,
                (seq >> 1) & PSMI_LATEST_TAG_MASK);
+    } else if (slots[i].length > h->capacity) {
+        fputs("  INVALID: length > capacity; readers get FORMAT", stdout);
+        ok = false;
+    }
     putchar('\n');
+    return ok;
 }
 
 static void print_slots(const psmi_slot *slots, const psmi_header *h, uint32_t latest)
@@ -227,9 +234,11 @@ static void print_slots(const psmi_slot *slots, const psmi_header *h, uint32_t l
     }
 }
 
-/* Prints the raw view of the data file. Returns 0 or EXIT_INVALID. */
-static int dump_raw(const char *path)
+/* Prints the raw view of the data file. Returns 0 or EXIT_INVALID; sets
+ * `*read_ok` if the whole view was read, even if `latest` is invalid. */
+static int dump_raw(const char *path, bool *read_ok)
 {
+    *read_ok = false;
     int fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
     if (fd < 0) {
         if (errno == ENOENT)
@@ -271,9 +280,9 @@ static int dump_raw(const char *path)
         if (pread(fd, &slots[i], sizeof slots[i], off) != (ssize_t)sizeof slots[i])
             goto short_read;
     }
-    print_latest(latest, slots, h.slot_count);
+    *read_ok = true;
+    rc = print_latest(latest, slots, &h) ? 0 : EXIT_INVALID;
     print_slots(slots, &h, latest);
-    rc = 0;
     goto out;
 short_read:
     error("%s changed size while being read", path);
@@ -352,9 +361,10 @@ static void print_hex(psmsgr_state_reader *r)
 static int dump(psmsgr_state_reader *r, const options *o, const char *path)
 {
     printf("channel       %s (%s)\n", o->name, path);
-    int rc = dump_raw(path);
+    bool read_ok;
+    int rc = dump_raw(path, &read_ok);
     print_liveness(r);
-    if (rc == 0) {
+    if (read_ok) {
         print_value(r);
         if (o->hex)
             print_hex(r);
