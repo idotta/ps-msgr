@@ -27,7 +27,7 @@ bindings/
     src/ps_msgr/              ctypes binding (src layout: tests run against the installed package)
     tests/                    pytest
   csharp/
-    PsMsgr.sln
+    PsMsgr.slnx
     check.sh                  build, xUnit, dotnet format, Native AOT smoke, pack
     PsMsgr/PsMsgr.csproj
     PsMsgr.Tests/PsMsgr.Tests.csproj
@@ -169,7 +169,7 @@ until its stdin closes.
 
 ## C#
 
-SDK-style projects in `bindings/csharp/PsMsgr.sln`. The library targets
+SDK-style projects in `bindings/csharp/PsMsgr.slnx`. The library targets
 `netstandard2.1`. The test project must target a concrete runtime: the
 current .NET LTS, with xUnit v3 on Microsoft.Testing.Platform (`global.json`
 selects it for `dotnet test`). Package versions are pinned centrally in

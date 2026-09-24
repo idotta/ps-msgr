@@ -37,9 +37,9 @@ python3 -m pip install --quiet --no-deps --no-index --target "$tmp/site" "$tmp"/
 export PYTHONPATH="$tmp/site"
 
 cd "$here"
-dotnet build PsMsgr.sln -c Release
+dotnet build PsMsgr.slnx -c Release
 dotnet test --project PsMsgr.Tests -c Release --no-build
-dotnet format PsMsgr.sln --verify-no-changes --no-restore
+dotnet format PsMsgr.slnx --verify-no-changes --no-restore
 
 dotnet publish PsMsgr.AotSmoke -c Release -r "$rid" -o "$out/aot"
 "$out/aot/PsMsgr.AotSmoke"
