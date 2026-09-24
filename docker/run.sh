@@ -5,7 +5,7 @@
 # and the working directory mapped to the same place inside the repo.
 # Builds the image on first use. Files are created as the calling user.
 #
-#   cd c && ../docker/run.sh cmake --workflow --preset dev
+#   docker/run.sh cmake --workflow --preset dev
 #
 # PSMSGR_BUILD_IMAGE overrides the image tag (default: psmsgr-build).
 # PSMSGR_REBUILD_IMAGE=1 forces a rebuild of the image.

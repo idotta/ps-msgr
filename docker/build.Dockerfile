@@ -5,7 +5,7 @@
 # guarantees binaries match the board's glibc.
 #
 #   docker build -t psmsgr-build -f docker/build.Dockerfile docker
-#   docker/run.sh cmake --workflow --preset dev      # from c/
+#   docker/run.sh cmake --workflow --preset dev
 
 FROM debian:trixie
 
