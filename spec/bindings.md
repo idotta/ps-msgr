@@ -90,51 +90,43 @@ encoding is up to the application: `struct`, `ctypes.Structure`,
 
 ## C# — `PsMsgr`
 
-- Target frameworks: **`netstandard2.1;net8.0`**.
-  - `netstandard2.1` covers .NET Core 3.x / .NET 5+, Mono 6.4+ (Debian's
-    `mono-runtime` on armhf) and Unity.
-  - `net8.0` exists so that the trim/AOT analyzers can run
-    (`IsAotCompatible` requires a `net7.0+` target; on `netstandard2.1` the
-    SDK only warns that analysis isn't possible). .NET 8+ consumers pick this
-    build.
-  - The public API MUST be identical across both targets. Differences are
-    internal and kept behind `#if NET8_0_OR_GREATER`.
+- Target framework: **`netstandard2.1`** only. That one build runs on
+  .NET Core 3.x / .NET 5+, Mono 6.4+ (Debian's `mono-runtime` on armhf) and
+  Unity, and can be compiled into Native AOT apps.
   - Built with `LangVersion` `latest`, `Nullable` `enable` and
-    `AllowUnsafeBlocks`. Compiler attributes that `netstandard2.1` lacks
-    (`IsExternalInit` for records and `init`) are defined `internal` for that
-    target only.
+    `AllowUnsafeBlocks`.
+  - Compiler attributes that `netstandard2.1` lacks (`IsExternalInit` for
+    records and `init`) are defined `internal`.
 
-### Native AOT and trimming
+### Native AOT compatibility
 
-The library MUST be trim-safe and Native-AOT-compatible, and CI proves it
-(build-and-test.md):
+The library MUST work in Native AOT apps. The proof is that a Native AOT app
+using it publishes with **zero** trim/AOT warnings (build-and-test.md).
+Rules that keep it that way:
 
-- `IsAotCompatible=true` on the `net8.0` target, which implies `IsTrimmable`,
-  plus the trim, AOT and single-file analyzers. Their warnings (`IL2xxx`,
-  `IL3xxx`) are errors.
-- `IsTrimmable=true` on the `netstandard2.1` target as well.
 - No reflection, `dynamic`, `Type`-based marshalling
   (`Marshal.SizeOf(Type)`, `Marshal.PtrToStructure(IntPtr, Type)`),
   `Activator`, `Expression`, `Reflection.Emit` or runtime-generated code.
   Generic payload helpers are constrained to `unmanaged` and use
-  `sizeof(T)`, `Unsafe.As` and `MemoryMarshal`. These are resolved at compile
-  time for every instantiation the app uses.
+  `sizeof(T)`, pointers and `MemoryMarshal.Read/Write<T>`. They use no
+  `Unsafe` class: on `netstandard2.1` that would pull in a package
+  dependency, and the library has none.
 - No P/Invoke callbacks or delegates. The C API has none, and it MUST NOT
   grow any that the binding would need.
-- On `net8.0`, `[assembly: DisableRuntimeMarshalling]` guarantees that no
-  signature needs a marshalling stub.
-- Native AOT on the BeagleBone Black requires **.NET 9 or later**, because
-  linux-arm (32-bit) became a Native AOT target only in .NET 9. Use the
-  current LTS runtime. .NET 8 AOT covers only x64/Arm64 development hosts.
+- Blittable P/Invoke signatures only (see *Native interop*). Native AOT
+  compiles these without marshalling logic.
+- Native AOT on the BeagleBone Black needs a **.NET 9+** app, because
+  linux-arm (32-bit) is a Native AOT target only since .NET 9. Use the
+  current LTS runtime.
 - **Static linking (MAY):** an AOT app can link `libpsmsgr.a` into its
   executable with `<DirectPInvoke Include="libpsmsgr.so.1" />` and
   `<NativeLibrary Include="…/libpsmsgr.a" />`, so no `.so` needs deploying on
-  the device. This scenario is covered by the AOT smoke test.
+  the device.
 
 ### Native interop
 
 - P/Invoke uses `[DllImport("libpsmsgr.so.1")]` with the versioned name
-  hard-coded, on both targets (one source, and supported by Native AOT), and
+  hard-coded, and
   **blittable signatures only**: raw pointers, integers, and `byte*` for
   strings.
   - The binding encodes strings to NUL-terminated UTF-8 itself, only in
@@ -148,7 +140,7 @@ The library MUST be trim-safe and Native-AOT-compatible, and CI proves it
     is read with `Marshal.GetLastWin32Error()`, which works on Unix and in
     AOT.
 - `PSMSGR_LIBRARY` override: `NativeLibrary` isn't available on
-  `netstandard2.1`, and isn't needed on `net8.0` either. The static
+  `netstandard2.1`. The static
   constructor of the interop class calls
   `dlopen($PSMSGR_LIBRARY, RTLD_NOW | RTLD_GLOBAL)` through
   `[DllImport("libdl.so.2")]` when the variable is set. glibc reuses an

@@ -134,7 +134,7 @@ recreates the channel under Python and C# readers.
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, `time_t`). |
 | Python (x86-64) | Binding tests plus interop. |
 | C# (x86-64) | Binding tests plus interop on .NET LTS; a Mono smoke test of the `netstandard2.1` assembly. |
-| C# Native AOT | `dotnet publish -p:PublishAot=true` of a smoke-test app (writer + reader + wait) with IL2xxx/IL3xxx warnings as errors. Covers linux-x64 run natively and linux-arm cross-compiled and run under `qemu-arm`. Includes the `DirectPInvoke` static-link variant. |
+| C# Native AOT | `dotnet publish -p:PublishAot=true` of `PsMsgr.AotSmoke` with `TrimmerSingleWarn=false` (per-warning detail for library code) and IL2xxx/IL3xxx as errors. Publish-time analysis only covers code the app reaches, so the smoke app MUST call every public API, including the generic helpers with a sample struct. Builds for linux-x64 and runs it. |
 | CPack | Build the `.deb` for armhf and amd64. |
 
 ## On-target validation (before each release)
