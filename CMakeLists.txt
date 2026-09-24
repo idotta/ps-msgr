@@ -20,6 +20,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(PSMSGR_BUILD_TESTS "Build the unit and torture tests" ${PROJECT_IS_TOP_LEVEL})
+option(PSMSGR_BUILD_TOOLS "Build psmsgr-dump" ON)
 option(PSMSGR_WERROR "Treat compiler warnings as errors" OFF)
 set(PSMSGR_SANITIZE "" CACHE STRING
     "Sanitizers to enable, as passed to -fsanitize= (e.g. address,undefined or thread)")
@@ -131,6 +132,10 @@ configure_file(cmake/psmsgr.pc.in "${CMAKE_CURRENT_BINARY_DIR}/psmsgr.pc" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/psmsgr.pc"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig COMPONENT dev)
 
+if(PSMSGR_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
+
 set(CPACK_PACKAGE_NAME psmsgr)
 set(CPACK_PACKAGE_VENDOR "PS Soluções")
 set(CPACK_PACKAGE_CONTACT "ps-msgr maintainers")
@@ -138,6 +143,9 @@ set(CPACK_GENERATOR DEB)
 set(CPACK_STRIP_FILES ON)
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_COMPONENTS_ALL runtime dev)
+if(PSMSGR_BUILD_TOOLS)
+    list(APPEND CPACK_COMPONENTS_ALL tools)
+endif()
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS ON)
@@ -148,6 +156,12 @@ set(CPACK_DEBIAN_RUNTIME_PACKAGE_SECTION libs)
 set(CPACK_DEBIAN_DEV_PACKAGE_NAME libpsmsgr-dev)
 set(CPACK_DEBIAN_DEV_PACKAGE_SECTION libdevel)
 set(CPACK_COMPONENT_DEV_DEPENDS runtime)
+set(CPACK_DEBIAN_TOOLS_PACKAGE_NAME psmsgr-tools)
+set(CPACK_DEBIAN_TOOLS_PACKAGE_SECTION utils)
+set(CPACK_COMPONENT_TOOLS_DEPENDS runtime)
+# Lets dpkg-shlibdeps find the not yet installed libpsmsgr.so.1 that the
+# tools link; the dependency on it is the component dependency above.
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "${CMAKE_CURRENT_BINARY_DIR}")
 include(CPack)
 
 # ---- tests ------------------------------------------------------------------

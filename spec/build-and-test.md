@@ -199,6 +199,12 @@ Every test uses its own temporary directory as the channel `dir`, never
   `dir` gives `ENOENT`.
 - Reader validation: fuzz the header (random bytes, extreme field values).
   Attach must fail with `FORMAT` and never crash.
+- `psmsgr-dump` (`tests/test_dump.c`), run as a child process: usage errors,
+  a missing channel, never published, published, `RETIRED`, a corrupt
+  header (each §6.1 check, random bytes), a stale `latest` and odd `seq`,
+  `--hex` and its cap, and `--watch` with and without `NO_NOTIFY`. Checks
+  the exit code and key lines of the output. Under qemu the test runs the
+  tool through the same emulator.
 - `ENOSPC` from `posix_fallocate` on a size-limited tmpfs, where the
   environment allows mounting one.
 

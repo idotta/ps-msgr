@@ -220,5 +220,25 @@ for (;;) {
 `psmsgr-dump <name> [--dir D] [--watch] [--hex]` prints a channel's header,
 its slots (seq, generation, age, length), writer liveness and, optionally,
 a hexdump of the latest payload. It is built on the public API plus a
-read-only raw header view, and it is shipped with the library for debugging
-on the target.
+read-only raw header view, and it is shipped in `psmsgr-tools` for
+debugging on the target.
+
+- **Raw view.** The data file is opened `O_RDONLY | O_NOFOLLOW` and read
+  with `pread`, never written. The header passes the attach checks of
+  state-channel.md §6.1 before any other field is used, so a corrupt file
+  is reported, never crashed on. The raw fields are a snapshot and may be
+  torn while a writer is active.
+- **`latest`** is shown decoded (slot index, tag). A tag that doesn't match
+  the named slot's current `seq`, or an odd `seq` there, is flagged as
+  stale: a reader gets `BUSY` until the writer publishes again. An odd
+  `seq` in any slot means a write in progress, or one left by an abort or
+  a crash.
+- **Consistent values** come only through the API: the latest value's
+  generation, length and age (`peek`), writer liveness (`writer_alive`), and
+  the `--hex` payload (`read`, at most the first 1 KiB shown).
+- **`--watch`** redraws whenever the value, the writer's liveness or the file
+  changes: it blocks in `psmsgr_state_wait`, polls on `NO_NOTIFY` channels,
+  and exits 0 on `SIGINT` or `SIGTERM`. A missing or invalid channel is
+  shown and watched, not an error.
+- **Exit status:** 0 ok, 1 channel missing or invalid, 2 usage error
+  (including an invalid name).

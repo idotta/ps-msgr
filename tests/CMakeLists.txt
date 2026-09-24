@@ -22,9 +22,9 @@ target_compile_options(psmsgr_test_flags INTERFACE -Wno-unused-parameter)
 # Tests call the public API through the shared library, exactly like the
 # bindings do. With STATIC they link the static library instead, which also
 # gives them the internal test hooks (src/internal.h); the .so exports none.
-# LABEL defaults to unit.
+# LABEL defaults to unit. ARGS are passed to the test program.
 function(psmsgr_add_test name source)
-    cmake_parse_arguments(ARG "STATIC" "LABEL" "" ${ARGN})
+    cmake_parse_arguments(ARG "STATIC" "LABEL" "ARGS" ${ARGN})
     if(NOT ARG_LABEL)
         set(ARG_LABEL unit)
     endif()
@@ -39,7 +39,7 @@ function(psmsgr_add_test name source)
     # layout.h: tests inspect and corrupt channel files from the outside.
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
     target_compile_definitions(${name} PRIVATE _GNU_SOURCE)
-    add_test(NAME ${name} COMMAND ${name})
+    add_test(NAME ${name} COMMAND ${name} ${ARG_ARGS})
     set_tests_properties(${name} PROPERTIES LABELS ${ARG_LABEL} TIMEOUT 300)
     if(_psmsgr_test_env)
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "${_psmsgr_test_env}")
@@ -52,6 +52,12 @@ psmsgr_add_test(test_state test_state.c)
 psmsgr_add_test(test_state_hooks test_state_hooks.c STATIC)
 # Seqlock torture: select with ctest -L torture, skip with -LE torture.
 psmsgr_add_test(test_torture test_torture.c STATIC LABEL torture)
+if(TARGET psmsgr-dump)
+    # Under qemu-user the test itself runs emulated, and an armhf child only
+    # runs through the emulator too: exec passes straight to the host kernel.
+    psmsgr_add_test(test_dump test_dump.c
+        ARGS ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:psmsgr-dump>)
+endif()
 
 include(CheckLanguage)
 check_language(CXX)
