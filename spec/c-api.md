@@ -200,6 +200,9 @@ int  psmsgr_state_unlink(const char *name, const char *dir);
 
 ## Usage (non-normative)
 
+The complete programs, in C, Python and C#, are in
+[`examples/`](../examples/README.md).
+
 ```c
 struct motor_status {
     uint64_t sequence;

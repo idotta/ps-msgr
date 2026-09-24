@@ -24,3 +24,8 @@ as described in [`spec/README.md`](spec/README.md).
 - `interop/`: cross-language tests with a C, a Python and a C# (Native AOT)
   agent, every writer against every reader, and a CI job for them. They
   replace the interop tests of the Python and C# bindings.
+- `examples/`: a writer and a reader of a motor status in C, Python and C#
+  (Native AOT, also for `linux-arm`), all on one channel, so that any
+  writer works with any reader. The C examples build in-tree
+  (`PSMSGR_BUILD_EXAMPLES`) or against an installed library.
+  `examples/check.sh` runs them against each other in CI.

@@ -1,0 +1,9 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <Compile Include="../MotorStatus.cs" />
+    <ProjectReference Include="../../../bindings/csharp/PsMsgr/PsMsgr.csproj" />
+  </ItemGroup>
+
+</Project>

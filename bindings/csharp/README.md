@@ -49,10 +49,7 @@ const uint MotorStatusV1 = 0x0001_0001; // schema 1, version 1 (payload_type)
 
 // Writer
 using (var w = StateWriter.Open("motor", new StateOptions(24) { PayloadType = MotorStatusV1 }))
-{
-    var status = new MotorStatus { Sequence = 1, SpeedRpm = 1500f, CurrentA = 2.5f, TemperatureC = 41f };
-    uint generation = w.Publish(status);
-}
+    w.Publish(new MotorStatus { Sequence = 1, SpeedRpm = 1500f, CurrentA = 2.5f, TemperatureC = 41f });
 
 // Reader: may start before the writer
 using (var r = StateReader.Open("motor"))
@@ -65,10 +62,15 @@ using (var r = StateReader.Open("motor"))
         if (info.Attached && r.Describe()?.PayloadType != MotorStatusV1)
             throw new InvalidDataException("unexpected payload type");
         seen = info.Generation;
-        Console.WriteLine($"{status.Sequence} {status.SpeedRpm} {status.TemperatureC}");
+        Console.WriteLine($"{status.Sequence} {status.SpeedRpm}");
     }
 }
 ```
+
+[`examples/csharp/`](../../examples/csharp/) has the complete programs,
+which work with the C and Python examples: a writer at a steady rate, a
+reader that tells a stale writer from a dead one, Ctrl-C, and Native AOT
+publishing for the BeagleBone Black.
 
 - Payloads are plain structs: `Publish<T>` and `TryRead<T>` copy the raw
   `sizeof(T)` bytes of any `unmanaged` struct. Declare it with

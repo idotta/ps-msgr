@@ -152,6 +152,9 @@ jobs:
       - name: C, Python and C# (Native AOT) agents, pytest, ruff, dotnet format
         run: docker/run.sh interop/check.sh
 
+      - name: Examples in C, Python and C# (Native AOT), writers x readers, ruff, dotnet format
+        run: docker/run.sh examples/check.sh
+
   # x86 hides memory-ordering bugs, and qemu-user on an x86 host still runs
   # with x86 ordering, so only real AArch64 hardware tests the seqlock on
   # weakly ordered memory. Same Dockerfile, built natively for arm64.
@@ -194,3 +197,6 @@ jobs:
 
       - name: Interop
         run: docker/run.sh interop/check.sh
+
+      - name: Examples
+        run: docker/run.sh examples/check.sh

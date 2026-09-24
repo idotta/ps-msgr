@@ -45,28 +45,27 @@ class MotorStatus(ctypes.Structure):
 
 
 MOTOR_STATUS_V1 = 0x0001_0001  # schema 1, version 1 (payload_type)
-SIZE = ctypes.sizeof(MotorStatus)  # 24: padded to the 8-byte alignment of sequence
 
 # Writer
-with StateWriter("motor", SIZE, payload_type=MOTOR_STATUS_V1) as w:
-    status = MotorStatus(sequence=1, speed_rpm=1500.0, current_a=2.5, temperature_c=41.0)
-    generation = w.publish(memoryview(status))
+with StateWriter("motor", ctypes.sizeof(MotorStatus), payload_type=MOTOR_STATUS_V1) as w:
+    w.publish(memoryview(MotorStatus(1, 1500.0, 2.5, 41.0)))
 
 # Reader: may start before the writer
 with StateReader("motor") as r:
-    status = MotorStatus()
-    seen = 0
+    status, seen = MotorStatus(), 0
     while r.wait(seen, timeout=0.5):  # False after 0.5 s without a change
         info = r.read_into(memoryview(status))  # copies straight into the struct
         if info is None:
             continue
         if info.attached and r.describe().payload_type != MOTOR_STATUS_V1:
             raise RuntimeError("unexpected payload type")
-        if info.length != SIZE:
-            raise RuntimeError(f"unexpected payload size {info.length}")
         seen = info.generation
-        print(status.sequence, status.speed_rpm, status.temperature_c)
+        print(status.sequence, status.speed_rpm)
 ```
+
+[`examples/python/`](../../examples/python/) has the complete programs,
+which work with the C and C# examples: a writer at a steady rate, a reader
+that tells a stale writer from a dead one, and Ctrl-C.
 
 - Payloads are plain C structs mirrored with `ctypes.Structure`: declare the
   same fields in the same order and ctypes lays them out like the C compiler
