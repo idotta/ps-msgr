@@ -43,11 +43,6 @@ def helper() -> Path:
 
 
 @pytest.fixture(scope="session")
-def dump_tool() -> Path:
-    return _build_file("tools/psmsgr-dump")
-
-
-@pytest.fixture(scope="session")
 def child_env() -> dict[str, str]:
     """Environment for a Python child process that imports this ps_msgr."""
     return {**os.environ, "PYTHONPATH": str(Path(ps_msgr.__file__).parent.parent)}

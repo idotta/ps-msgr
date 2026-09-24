@@ -122,16 +122,17 @@ public sealed class StateTests : ChannelTest
     {
         using var r = OpenReader();
         Assert.False(r.IsWriterAlive); // no lock file yet
-        using (var child = ChildWriter.C(Dir, 8, 0, "child"))
+        using (var child = new ChildWriter(Dir, 5))
         {
-            var e = Assert.Throws<PsMsgrException>(() => OpenWriter(8));
+            var e = Assert.Throws<PsMsgrException>(() => OpenWriter(24, payloadType: 0x0001_0001));
             Assert.Equal(PsMsgrError.WriterExists, e.Code);
             Assert.True(r.IsWriterAlive);
             child.Kill(); // SIGKILL: the lock goes with the process
         }
         Assert.False(r.IsWriterAlive);
-        Assert.Equal(B("child"), r.Read(out _));
-        using (OpenWriter(8))
+        Assert.True(r.TryRead(out MotorStatus status, out _));
+        Assert.Equal(5ul, status.Sequence);
+        using (OpenWriter(24, payloadType: 0x0001_0001))
             Assert.True(r.IsWriterAlive);
         Assert.False(r.IsWriterAlive);
     }
