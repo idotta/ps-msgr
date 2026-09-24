@@ -1,0 +1,78 @@
+# ps-msgr specifications
+
+Status: **draft** — nothing here is implemented yet. Change freely until the
+first tagged release; after that, changes follow the versioning rules below.
+
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are used as in
+RFC 2119. Sections marked *non-normative* are guidance only.
+
+## Documents
+
+| Document | Contents |
+|---|---|
+| [state-channel.md](state-channel.md) | Shared-memory layout and concurrency protocol of a state channel (the cross-language contract) |
+| [c-api.md](c-api.md) | Public C API of `libpsmsgr` |
+| [bindings.md](bindings.md) | Python and C# bindings |
+| [build-and-test.md](build-and-test.md) | Repository layout, build, packaging, tests, CI |
+
+## Goals
+
+- Exchange **latest-value state** between processes on one Linux host.
+  Primary target: BeagleBone Black (TI AM335x, single-core Cortex-A8,
+  ARMv7-A, armhf, 512 MiB RAM) running **Debian 13 (trixie)**. That is the
+  only supported target OS; older releases are not supported, and boards
+  still on older images get reflashed.
+- One implementation of everything concurrency-sensitive, in C
+  (`libpsmsgr`). The Python and C# packages are thin bindings over it; they
+  MUST NOT reimplement the shared-memory protocol.
+- Readers never block the writer, and the writer never blocks on readers.
+- No syscalls on the publish/read hot path, except one optional futex wake per publish.
+- Correct on multi-core and weakly ordered CPUs too (x86-64 and AArch64
+  development machines, CI runners, other boards), even though the primary
+  target is single-core.
+
+## Non-goals (for now)
+
+- Message queues: every message delivered, in order. Planned as a separate
+  component, see *Future components*.
+- Communication across hosts, or across containers that don't share the
+  shared-memory directory.
+- Payload serialization. The payload is an opaque byte string owned by the
+  application layer. The library carries a 32-bit `payload_type` tag so
+  applications can detect schema mismatches, but never interprets it.
+- Persistence across reboots. Channels live in tmpfs.
+- Big-endian hosts.
+
+## Naming
+
+| Thing | Name |
+|---|---|
+| Repository | `ps-msgr` |
+| C library / SONAME | `libpsmsgr` / `libpsmsgr.so.1` |
+| C headers | `<psmsgr/psmsgr.h>` (umbrella), `<psmsgr/state.h>` |
+| C symbol prefix | `psmsgr_`, `PSMSGR_` |
+| Python distribution / import | `ps-msgr` / `ps_msgr` |
+| C# package / namespace | `PsMsgr` |
+| Channel file | `<dir>/psmsgr.<name>.state` (see state-channel.md) |
+
+## Versioning
+
+Three independent version numbers:
+
+1. **Channel format version** (`version_major.version_minor` in the channel
+   header). A minor bump MAY only add fields in reserved space, and those
+   fields MUST read as zero on older files. Anything else is a major bump.
+   Readers MUST reject a different major version.
+2. **Library version** (SemVer). The library major version equals the
+   SONAME number (`libpsmsgr.so.1`) and changes only on C ABI breaks. The
+   first release is 1.0.0; until then nothing is stable.
+3. **Binding package versions** (SemVer). Each binding declares the
+   minimum library version it needs and checks it at load time.
+
+## Future components (non-normative)
+
+**Queue channels** (messages with delivery and ordering guarantees) will get
+their own spec (`queue-channel.md`), file suffix, magic number and API prefix
+(`psmsgr_queue_*`), probably in the same repository and library, so that they
+share the build, packaging and binding infrastructure. The state-channel
+format and API do not depend on them.
