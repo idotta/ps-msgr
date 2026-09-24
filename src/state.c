@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -292,16 +293,22 @@ static void remove_stale_tmp(const paths *p)
 
 /* ---- options -------------------------------------------------------------- */
 
-void psmsgr_state_options_init(psmsgr_state_options *opt)
+void psmsgr_state_options_init_sized(psmsgr_state_options *opt, uint32_t size)
 {
-    if (opt == NULL)
+    if (opt == NULL || size < sizeof opt->struct_size)
         return;
-    *opt = (psmsgr_state_options){
-        .struct_size = sizeof *opt,
+    const psmsgr_state_options d = {
+        .struct_size = size,
         .capacity    = 0,
         .slot_count  = PSMSGR_STATE_DEFAULT_SLOTS,
         .mode        = 0644,
     };
+    if (size <= sizeof d) {
+        memcpy(opt, &d, size);
+    } else { /* a newer caller: fields this library doesn't know read as 0 */
+        memcpy(opt, &d, sizeof d);
+        memset((unsigned char *)opt + sizeof d, 0, size - sizeof d);
+    }
 }
 
 #define OPT_HAS(opt, field) \
@@ -356,12 +363,30 @@ static uint32_t config_flags_of(const psmsgr_state_options *o)
     return (o->flags & PSMSGR_STATE_NO_NOTIFY) ? PSMI_CONFIG_NO_NOTIFY : 0;
 }
 
+/* First generation of a file with no value yet (§5.2). Random, so that a
+ * reader's last generation from a file this one replaced (or from before an
+ * unlink) is unlikely to match it. Needs no cryptographic quality. */
+static uint32_t random_generation(void)
+{
+    uint32_t g;
+    if (getrandom(&g, sizeof g, GRND_INSECURE) != (ssize_t)sizeof g) {
+        /* Kernels before 5.6 lack GRND_INSECURE: mix the clocks and the pid. */
+        uint64_t x = psmi_clock_ns(CLOCK_MONOTONIC) ^ (psmi_clock_ns(CLOCK_REALTIME) << 17) ^
+                     (uint64_t)getpid();
+        x ^= x >> 33;
+        x *= UINT64_C(0xff51afd7ed558ccd);
+        x ^= x >> 33;
+        g = (uint32_t)x;
+    }
+    return g != 0 ? g : 1;
+}
+
 /* Generation following the latest value of a mapped file; `stride` and
  * `latest` have been validated. */
 static uint32_t carried_generation(const psmi_header *map, uint32_t stride, uint32_t latest)
 {
     if (latest == PSMI_LATEST_NONE)
-        return 1;
+        return random_generation();
     const psmi_slot *s = (const psmi_slot *)((const unsigned char *)map + PSMI_HEADER_SIZE +
                                              (size_t)latest * stride);
     return next_generation(s->generation);
@@ -459,7 +484,7 @@ static int open_data(psmsgr_state_writer *w, const psmsgr_state_options *o, cons
 {
     int fd = open(p->data, O_RDWR | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
     if (fd < 0)
-        return errno == ENOENT ? create_file(w, o, p, NULL, 1) : PSMSGR_E_SYS;
+        return errno == ENOENT ? create_file(w, o, p, NULL, random_generation()) : PSMSGR_E_SYS;
 
     struct stat st;
     psmi_header h;
@@ -492,17 +517,18 @@ static int open_data(psmsgr_state_writer *w, const psmsgr_state_options *o, cons
         latest = psmi_latest_slot(latest);
 
     bool recreate = (o->flags & PSMSGR_STATE_RECREATE) != 0;
-    uint32_t gen = valid ? carried_generation(old, h.slot_stride, latest) : 1;
+    uint32_t gen = valid ? carried_generation(old, h.slot_stride, latest) : random_generation();
     if (!valid) {
         rc = recreate ? create_file(w, o, p, old, gen) : PSMSGR_E_FORMAT;
-    } else if (h.version_minor != PSMI_VERSION_MINOR ||
-               (load_acquire(&old->state) & PSMI_STATE_RETIRED) != 0) {
-        /* Another minor version, or a file left retired by an interrupted
-         * unlink: replaced automatically, readers follow the retire. */
+    } else if ((load_acquire(&old->state) & PSMI_STATE_RETIRED) != 0) {
+        /* Left retired by an interrupted unlink: as good as absent. */
         rc = create_file(w, o, p, old, gen);
     } else if (h.capacity != o->capacity || h.slot_count != o->slot_count ||
                h.payload_type != o->payload_type || h.config_flags != config_flags_of(o)) {
         rc = recreate ? create_file(w, o, p, old, gen) : PSMSGR_E_MISMATCH;
+    } else if (h.version_minor != PSMI_VERSION_MINOR) {
+        /* Replaced automatically; readers follow the retire. */
+        rc = create_file(w, o, p, old, gen);
     } else {
         /* §5.3 reuse. A slot left odd by a crashed publish stays odd: its
          * payload may be partial. It is the slot the next publish writes. */
@@ -930,8 +956,12 @@ int psmsgr_state_wait(psmsgr_state_reader *r, uint32_t last_generation, int32_t 
         if (futex_wait(&r->hdr->notify, n, slice) != 0) {
             if (errno == EINTR)
                 return PSMSGR_E_INTR;
-            if (errno == ETIMEDOUT && (rc = identity_check(r)) != PSMSGR_OK)
-                return rc;
+            if (errno == ETIMEDOUT) {
+                if ((rc = identity_check(r)) != PSMSGR_OK)
+                    return rc;
+            } else if (errno != EAGAIN) {
+                return PSMSGR_E_SYS; /* e.g. ENOSYS under seccomp: never spin */
+            }
         }
     }
 }

@@ -103,6 +103,15 @@ static inline int publish_str(psmsgr_state_writer *w, const char *s, uint32_t *g
     return psmsgr_state_publish(w, s, (uint32_t)strlen(s), gen);
 }
 
+/* The generation n publishes after `gen`. A new file starts at a random one,
+ * so tests compare relative to the first; this wraps like the writer. */
+static inline uint32_t gen_after(uint32_t gen, uint32_t n)
+{
+    while (n-- > 0)
+        gen = gen == UINT32_MAX ? 1 : gen + 1;
+    return gen;
+}
+
 /* Reads the latest value as a string; returns the read's result code. */
 static inline int read_str(psmsgr_state_reader *r, char *buf, uint32_t size, psmsgr_state_info *info)
 {

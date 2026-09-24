@@ -176,16 +176,17 @@ open.
        neither `0xFFFFFFFF` nor has bit 31 clear and a slot index below
        `slot_count`) → *create* (5.2) if
        `RECREATE` is requested, else fail with `PSMSGR_E_FORMAT`.
-     - **Different format version** (same major, different minor) →
-       *create* (5.2), automatically. Attached readers follow through the
-       retire, so upgrading the library needs no flag and no reboot.
      - **Already `RETIRED`** (an `unlink` was interrupted between retiring
-       and deleting the file) → *create* (5.2), automatically.
+       and deleting the file) → *create* (5.2), automatically, like a
+       missing file.
      - **Different geometry**: `capacity`, `slot_count`, `payload_type` or
        `config_flags` differ from the request → *create* (5.2) if
        `RECREATE` is requested, else fail with `PSMSGR_E_MISMATCH`. A
        different geometry is an application decision, so it is never
-       replaced silently.
+       replaced silently, also not together with a format upgrade.
+     - **Different format version** (same major, different minor) →
+       *create* (5.2), automatically. Attached readers follow through the
+       retire, so upgrading the library needs no flag and no reboot.
      - Otherwise, **compatible** → *reuse* (5.3).
 5. Set `writer_pid`.
 
@@ -204,8 +205,8 @@ open.
 4. If an old data file was replaced and it has at least 128 bytes and a
    valid magic: set `RETIRED` in the old header's `state` (release),
    increment its `notify`, `FUTEX_WAKE` all waiters on it, then unmap it.
-5. If the old file was readable and compatible in magic and major version,
-   carry its generation over (5.3). Otherwise start at 1.
+5. If the old file passed the validation in 6.1, carry its generation over
+   (5.3). Otherwise start at a random nonzero generation (6.5).
 
 ### 5.3 Reuse
 
@@ -217,9 +218,9 @@ open.
   next publish writes (the slot after `latest`'s index), which then makes it
   even again.
 - The writer's next generation is `slots[i].generation + 1` for `latest`'s
-  slot index `i`, or 1 if `latest == 0xFFFFFFFF`. A slot committed by a
-  writer that crashed before it stored `latest` was never readable (6.3), so
-  reusing its generation is harmless.
+  slot index `i`, or a random nonzero generation if `latest == 0xFFFFFFFF`
+  (6.5). A slot committed by a writer that crashed before it stored `latest`
+  was never readable (6.3), so reusing its generation is harmless.
 
 Readers that are already attached keep working through a writer restart: the
 file and its mapping stay the same.
@@ -418,6 +419,12 @@ shared mapping don't reliably update it, and reading it would take a
   skipping 0).
 - It is monotonic for the lifetime of a data file, and it is carried across
   writer restarts and, when possible, across recreates (5.2).
+- A file's first value gets a random nonzero generation (from
+  `getrandom(GRND_INSECURE)`, no cryptographic quality needed). Readers keep
+  their last generation across a reattach, so a new file that restarted at 1
+  would hide its first value from a reader whose last one was 1: `wait` would
+  block and a polling loop would skip it. With a random start, that happens
+  with probability 2⁻³² per new file.
 - A reader handle never returns an older value than one it returned before,
   from `read` or `peek`, as long as it stays attached to the same file.
 - 0 is never a valid generation, so callers can use 0 to mean "never seen".
@@ -437,6 +444,7 @@ for (;;) {
     r = futex(&hdr->notify, FUTEX_WAIT, n, min(remaining, 1 s)); // shared futex
     if (r == -1 && errno == EINTR) return PSMSGR_E_INTR;
     if (r == -1 && errno == ETIMEDOUT) identity_check();         // orphan detection, 6.2
+    else if (r == -1 && errno != EAGAIN) return PSMSGR_E_SYS;    // e.g. ENOSYS: never spin
 }
 ```
 
