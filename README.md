@@ -2,7 +2,7 @@
 
 Inter-process state exchange for embedded Linux, with a primary target of
 the BeagleBone Black. The core is one C library (`libpsmsgr`) with thin
-Python and C# bindings.
+Python, C# and Go bindings.
 
 **State channels** publish the latest value of an opaque payload from one
 writer to many readers through a shared-memory file in `/dev/shm`:
@@ -22,7 +22,9 @@ Black, the C library passed the torture test and was benchmarked
 and the bindings, the interop suite and the examples ran, with one
 timing-sensitive interop test failing
 ([`bench/results/2026-09-24-bbb-bindings-ebc2ba0/`](bench/results/2026-09-24-bbb-bindings-ebc2ba0/REPORT.md)).
-See [`spec/`](spec/README.md).
+The Go binding, added after 1.0.0, is tested in the build container
+(x86-64, and linux/arm under qemu) and has not run on the board. See
+[`spec/`](spec/README.md).
 
 | Directory | Contents |
 |---|---|
@@ -32,6 +34,7 @@ See [`spec/`](spec/README.md).
 | `bench/` | `psmsgr-bench`: latency on the target ([how to run it](bench/README.md)) |
 | `bindings/python/` | `ps_msgr`: ctypes binding ([usage](bindings/python/README.md)) |
 | `bindings/csharp/` | `PsMsgr`: P/Invoke binding, Native AOT compatible ([usage](bindings/csharp/README.md)) |
+| `bindings/go/` | `psmsgr`: cgo binding, optionally linked statically ([usage](bindings/go/README.md)) |
 | `examples/` | A writer and a reader in C, Python and C#, all on one channel ([how to run them](examples/README.md)) |
 | `docker/` | Build container and `run.sh` |
 
@@ -47,6 +50,7 @@ docker/run.sh cmake --workflow --preset armhf          # BeagleBone Black: tests
 docker/run.sh cmake --workflow --preset armhf-release  # + libpsmsgr1, -dev and psmsgr-tools .debs
 docker/run.sh bindings/python/check.sh                 # Python binding, after the release preset
 docker/run.sh bindings/csharp/check.sh                 # C# binding, after the release preset
+docker/run.sh bindings/go/check.sh                     # Go binding, after the release preset
 docker/run.sh examples/check.sh                        # examples, after the release preset
 ```
 

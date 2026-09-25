@@ -7,6 +7,13 @@ as described in [`spec/README.md`](spec/README.md).
 
 ## [Unreleased]
 
+### Added
+
+- `psmsgr`: the Go binding (cgo, Go ≥ 1.24, no dependencies, optionally
+  linked statically with the `psmsgr_static` build tag), in `bindings/go/`,
+  and a CI job that also runs its tests for `linux/arm` under qemu. The
+  build container gets trixie's `golang-go`.
+
 ## [1.0.0] - 2026-09-25
 
 ### Added

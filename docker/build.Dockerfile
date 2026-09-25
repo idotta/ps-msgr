@@ -35,6 +35,7 @@ RUN dpkg --add-architecture armhf \
         gdb-multiarch \
         file \
         git \
+        golang-go \
         ca-certificates \
         python3 \
         python3-pip \

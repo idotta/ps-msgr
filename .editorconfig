@@ -70,6 +70,10 @@ dotnet_diagnostic.IDE1006.severity = warning
 [bindings/csharp/PsMsgr.Tests/*.cs]
 dotnet_diagnostic.xUnit1051.severity = none
 
+# Go: gofmt's tabs.
+[*.go]
+indent_style = tab
+
 # Trailing spaces are a line break in Markdown.
 [*.md]
 trim_trailing_whitespace = false

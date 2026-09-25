@@ -11,7 +11,7 @@ RFC 2119. Sections marked *non-normative* are guidance only.
 |---|---|
 | [state-channel.md](state-channel.md) | Shared-memory layout and concurrency protocol of a state channel (the cross-language contract) |
 | [c-api.md](c-api.md) | Public C API of `libpsmsgr` |
-| [bindings.md](bindings.md) | Python and C# bindings |
+| [bindings.md](bindings.md) | Python, C# and Go bindings |
 | [build-and-test.md](build-and-test.md) | Repository layout, build, packaging, tests, CI |
 
 ## Goals
