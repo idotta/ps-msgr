@@ -176,6 +176,12 @@ set(CPACK_COMPONENT_TOOLS_DEPENDS runtime)
 # Lets dpkg-shlibdeps find the not yet installed libpsmsgr.so.1 that the
 # tools link; the dependency on it is the component dependency above.
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "${CMAKE_CURRENT_BINARY_DIR}")
+foreach(comp IN LISTS CPACK_COMPONENTS_ALL)
+    string(TOUPPER ${comp} COMP)
+    install(FILES cmake/debian-copyright RENAME copyright
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/${CPACK_DEBIAN_${COMP}_PACKAGE_NAME}
+        COMPONENT ${comp})
+endforeach()
 include(CPack)
 
 # ---- tests ------------------------------------------------------------------

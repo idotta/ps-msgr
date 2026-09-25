@@ -12,7 +12,7 @@ README.md
 CHANGELOG.md
 CMakeLists.txt                libpsmsgr
 CMakePresets.json
-cmake/                        toolchain file, package config, ABI check
+cmake/                        toolchain file, package config, ABI check, Debian copyright
 include/psmsgr/psmsgr.h
 include/psmsgr/state.h
 src/                          implementation (state.c, futex/lock helpers, …)
@@ -160,7 +160,9 @@ the library get correct package dependencies.
   | `PSMSGR_SANITIZE` | empty | Sanitizer to enable: `address`, `undefined` or `thread`. |
 
 - Packaging: CPack DEB for `armhf` and `amd64`, built in the trixie
-  container, produces `libpsmsgr1`, `libpsmsgr-dev` and `psmsgr-tools`.
+  container, produces `libpsmsgr1`, `libpsmsgr-dev` and `psmsgr-tools`,
+  each with its `/usr/share/doc/<package>/copyright` (machine-readable
+  format, Apache-2.0).
   Installing the `.deb` is the supported deployment path on the BBB.
   Package dependencies come from `dpkg-shlibdeps` (the container has
   `libc6:armhf` via multiarch for that) and are therefore trixie's.
