@@ -33,5 +33,3 @@ process requires them.
   (`CMakeLists.txt:140-173`).
 - [ ] Python: `wait(0, 1e300)` raises `OverflowError` (`_state.py:362`). Clamp
   large finite timeouts.
-- [ ] Examples: `examples/c/motor_writer.c:96` ignores the result of
-  `publish`.
