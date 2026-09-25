@@ -70,7 +70,8 @@ The rules that apply to both:
 - Timeouts are float seconds: `None` (or `math.inf`) waits indefinitely, `0`
   polls once, and a positive value is rounded up to whole milliseconds per
   call, so it never becomes a poll. `wait` waits in slices of at most
-  100 ms. Negative or NaN raises `ValueError`.
+  100 ms. A finite timeout longer than about 292 years (2^63 - 1
+  nanoseconds) is clamped to that. Negative or NaN raises `ValueError`.
 - Integer arguments are checked against their C type (`uint32_t`) and
   raise `ValueError` out of range, instead of being truncated by `ctypes`.
   A channel name or directory with a NUL character raises `ValueError`. The

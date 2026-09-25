@@ -26,8 +26,3 @@ process requires them.
 
 ## Should fix
 
-- [ ] **Python install on Debian 13.** `pip install bindings/python`
-  (`bindings/python/README.md:14`, `examples/README.md:113`) fails with PEP 668
-  "externally-managed-environment". Document a venv.
-- [ ] Python: `wait(0, 1e300)` raises `OverflowError` (`_state.py:362`). Clamp
-  large finite timeouts.
