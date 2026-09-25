@@ -34,17 +34,6 @@ version is older than the binding needs, the first call throws a
 using System.Runtime.InteropServices;
 using PsMsgr;
 
-// Mirrors the C struct motor_status: same fields, same natural alignment,
-// 24 bytes (padded to the 8-byte alignment of Sequence).
-[StructLayout(LayoutKind.Sequential)]
-struct MotorStatus
-{
-    public ulong Sequence;
-    public float SpeedRpm;
-    public float CurrentA;
-    public float TemperatureC;
-}
-
 const uint MotorStatusV1 = 0x0001_0001; // schema 1, version 1 (payload_type)
 
 // Writer
@@ -64,6 +53,17 @@ using (var r = StateReader.Open("motor"))
         seen = info.Generation;
         Console.WriteLine($"{status.Sequence} {status.SpeedRpm}");
     }
+}
+
+// Mirrors the C struct motor_status: same fields, same natural alignment,
+// 24 bytes (padded to the 8-byte alignment of Sequence).
+[StructLayout(LayoutKind.Sequential)]
+struct MotorStatus
+{
+    public ulong Sequence;
+    public float SpeedRpm;
+    public float CurrentA;
+    public float TemperatureC;
 }
 ```
 

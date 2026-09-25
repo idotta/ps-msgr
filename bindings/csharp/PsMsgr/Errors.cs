@@ -68,9 +68,16 @@ public class PsMsgrException : IOException
 
     private static unsafe string Format(PsMsgrError code, string? message, int errno, string? channelName)
     {
-        message ??= errno != 0
-            ? Native.FromUtf8z(Native.strerror(errno))
-            : Native.FromUtf8z(Native.psmsgr_strerror((int)code));
+        if (message is null && errno != 0)
+        {
+            byte* buf = stackalloc byte[256];
+            buf[0] = 0;
+            Native.strerror_r(errno, buf, 256);
+            buf[255] = 0;
+            if (buf[0] != 0)
+                message = Native.FromUtf8z(buf);
+        }
+        message ??= Native.FromUtf8z(Native.psmsgr_strerror((int)code));
         if (errno != 0)
             message = $"{message} (errno {errno})";
         return channelName is null ? message : $"{message}: '{channelName}'";

@@ -352,6 +352,16 @@ def test_wait_timeouts(tmp_path: Path) -> None:
             r.wait(1 << 32, 0)
 
 
+def test_wait_huge_timeout(tmp_path: Path) -> None:
+    with (
+        StateWriter(CHAN, 8, slot_count=2, directory=tmp_path) as w,
+        StateReader(CHAN, directory=tmp_path) as r,
+    ):
+        w.publish(b"a")
+        assert r.wait(0, 1e300) is True
+        assert r.wait(0, sys.float_info.max) is True
+
+
 def test_wait_follows_retire(tmp_path: Path) -> None:
     with StateReader(CHAN, directory=tmp_path) as r:
         with StateWriter(CHAN, 8, slot_count=2, directory=tmp_path) as w:
