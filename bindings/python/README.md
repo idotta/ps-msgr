@@ -17,7 +17,9 @@ python3 -m venv .venv
 .venv/bin/pip install bindings/python
 ```
 
-and run programs with `.venv/bin/python`.
+and run programs with `.venv/bin/python`. Installing from the source tree
+fetches `setuptools` and needs network; on an offline target, install
+the wheel instead (see [`examples/README.md`](../../examples/README.md)).
 
 At import, `ps_msgr` loads `libpsmsgr.so.1` through the normal library
 search path. To use another copy, such as a build tree, set

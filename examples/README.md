@@ -72,7 +72,7 @@ Then any writer × reader combination runs in a shell in the container
 
 ```sh
 export PSMSGR_LIBRARY=$PWD/build/release/libpsmsgr.so.1   # for Python and C#
-export PYTHONPATH=$PWD/bindings/python/src                 # or install it in a venv
+export PYTHONPATH=$PWD/bindings/python/src                 # or activate a venv with it
 examples/python/motor_reader.py --count 20 &
 build/release/examples/csharp/MotorWriter/MotorWriter --count 30
 ```
