@@ -476,8 +476,10 @@ func TestWaitContext(t *testing.T) {
 
 	// A deadline ends the wait on time, with any timeout.
 	for _, timeout := range []time.Duration{psmsgr.NoTimeout, 30 * time.Second} {
-		ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+		// start before the deadline is set, or the deadline can fall short
+		// of 150 ms after it.
 		start := time.Now()
+		ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 		_, err := r.Wait(ctx, gen, timeout)
 		elapsed := time.Since(start)
 		cancel()
@@ -491,8 +493,8 @@ func TestWaitContext(t *testing.T) {
 
 	// A cancel from another goroutine stops it within a slice.
 	ctx, cancel := context.WithCancel(context.Background())
-	time.AfterFunc(150*time.Millisecond, cancel)
 	start := time.Now()
+	time.AfterFunc(150*time.Millisecond, cancel)
 	if _, err := r.Wait(ctx, gen, psmsgr.NoTimeout); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Wait: %v", err)
 	}
