@@ -1,0 +1,17 @@
+commit: 803cba5 (origin/main), built in the build container
+library: docker/run.sh cmake --workflow --preset armhf-release
+go: go version go1.24.4 linux/amd64, cross-building with GOARCH=arm GOARM=7 CC=arm-linux-gnueabihf-gcc
+
+cd /src/bindings/go
+export GOTOOLCHAIN=local GOCACHE=/src/build/go/cache GOPATH=/src/build/go/path
+export CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=7 CC=arm-linux-gnueabihf-gcc
+export CGO_CFLAGS="-I/src/include -O2 -g" CGO_LDFLAGS="-L/src/build/armhf-release"
+out=/src/build/go/bbb
+mkdir -p $out
+go version > $out/go-version.txt
+go test -c -o $out/psmsgr.test ./psmsgr
+go test -c -tags psmsgr_static -o $out/psmsgr-static.test ./psmsgr
+
+a5fb588fb6979f97640be2358a6ff4a6233c73f0fb3048e046efd243143764e0  psmsgr.test
+624bfecb2fef28251ebeea177d73151ba1afff50f3318bac68732eb7bf60f5cc  psmsgr-static.test
+15fa6af4e3b5c69bf65c9465eb1db7fa3c93a7927a83190629950ace709452e6  tests/interop_helper
