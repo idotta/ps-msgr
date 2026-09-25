@@ -1,0 +1,53 @@
+[==========] tests: Running 7 test(s).
+[ RUN      ] torture_2_slots_16b
+slots 2, capacity 16: 1.0 s, 48527 publishes, 3251 aborts
+  thread  0: 87765 reads, 12537 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  thread  1: 88163 reads, 12594 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 2: 88048 reads, 12578 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 3: 87654 reads, 12523 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+[       OK ] torture_2_slots_16b
+[ RUN      ] torture_2_slots_4k
+slots 2, capacity 4096: 1.0 s, 4976 publishes, 341 aborts
+  thread  0: 17479 reads, 2496 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  thread  1: 17477 reads, 2496 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 2: 17259 reads, 2465 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 3: 17297 reads, 2471 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+[       OK ] torture_2_slots_4k
+[ RUN      ] torture_2_slots_1m
+slots 2, capacity 1048576: 1.0 s, 16 publishes, 0 aborts
+  thread  0: 63 reads, 9 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  thread  1: 62 reads, 9 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 2: 60 reads, 8 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 3: 53 reads, 7 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+[       OK ] torture_2_slots_1m
+[ RUN      ] torture_3_slots_16b
+slots 3, capacity 16: 1.0 s, 48191 publishes, 3290 aborts
+  thread  0: 87590 reads, 12512 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  thread  1: 87680 reads, 12525 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 2: 87808 reads, 12544 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 3: 87701 reads, 12529 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+[       OK ] torture_3_slots_16b
+[ RUN      ] torture_3_slots_4k
+slots 3, capacity 4096: 1.0 s, 4955 publishes, 321 aborts
+  thread  0: 12631 reads, 1804 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  thread  1: 12692 reads, 1813 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 2: 12617 reads, 1803 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 3: 12661 reads, 1809 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+[       OK ] torture_3_slots_4k
+[ RUN      ] torture_3_slots_1m
+slots 3, capacity 1048576: 1.0 s, 13 publishes, 0 aborts
+  thread  0: 31 reads, 5 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  thread  1: 30 reads, 4 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 2: 25 reads, 4 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+  process 3: 29 reads, 5 peeks, 0 busy (0), 0 bad [data 0, gen 0, len 0, order 0, rc 0 (-)]
+[       OK ] torture_3_slots_1m
+[ RUN      ] torn_reads_are_detected
+seq recheck disabled: 18344 reads in 1 rounds, torn: data 4, gen 0, len 0
+[       OK ] torn_reads_are_detected
+[==========] tests: 7 test(s) run.
+[  PASSED  ] 7 test(s).
+exit=0
+
+real	0m6.390s
+user	0m4.767s
+sys	0m1.585s

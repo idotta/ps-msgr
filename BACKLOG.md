@@ -8,12 +8,6 @@ resolves it.
 These can't be fixed after the tag without a SONAME bump, or the release
 process requires them.
 
-- [ ] **On-target run at the tag commit.**
-  - `bench/results/2026-09-24-bbb-6511c25/` predates 844645d, which changed
-    `src/state.c`.
-  - Re-run `psmsgr-bench` and the torture test on the BeagleBone Black and
-    record the results, as `spec/build-and-test.md` requires before each
-    release.
 - [ ] **ABI snapshot at the tag.** Record the 1.0.0 library's ABI with
   `abidw` (from `abigail-tools`), so a later release can be compared with
   `abidiff`. `abi_check` doesn't see struct layouts (`psmsgr_state_options`,
