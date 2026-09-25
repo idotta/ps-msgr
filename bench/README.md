@@ -70,6 +70,8 @@ ns per operation: min, median, p99 and max.
 | `getppid syscall` | Baseline cost of a trivial syscall. |
 | `psmsgr_now_ns` | Per call, through the library. |
 | `publish`, `publish NO_NOTIFY` | Uncontended, per payload size. The difference is the `FUTEX_WAKE` that a notifying channel makes on every publish. |
+| `fill/publish NO_NOTIFY`, `begin/fill/commit NO_NOTIFY` | The producer writing the whole payload (a `memset`): into its own buffer and then `publish`, or in place between `psmsgr_state_begin` and `psmsgr_state_commit`. The difference is what zero-copy saves when the producer builds the value from scratch. |
+| `begin/commit NO_NOTIFY` | `begin` and `commit` with no fill: the zero-copy call overhead, next to `publish NO_NOTIFY`. |
 | `read`, `peek` | Uncontended, per payload size, reader and writer in one process. |
 | `read (writer active)` | A reader polling in a tight loop while another process publishes at `--rate`. `busy` counts `PSMSGR_E_BUSY` results. |
 | `wait wake-up` | The writer stamps `psmsgr_now_ns()` into the payload just before publishing; the reader blocks in `psmsgr_state_wait`, reads, and subtracts the stamp. Includes the publish, the futex wake, scheduling and the read. |
