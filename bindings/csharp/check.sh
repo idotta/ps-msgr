@@ -38,7 +38,8 @@ dotnet publish PsMsgr.AotSmoke -c Release -r "$rid" -o "$out/aot"
 "$out/aot/PsMsgr.AotSmoke"
 dotnet "PsMsgr.AotSmoke/bin/Release/net10.0/$rid/PsMsgr.AotSmoke.dll"
 # A library that cannot be loaded fails the first call with a readable message.
-if PSMSGR_LIBRARY=/nonexistent "$out/aot/PsMsgr.AotSmoke" 2>"$tmp/err"; then
+# The unhandled exception aborts the process: no core file in the tree.
+if (ulimit -c 0; PSMSGR_LIBRARY=/nonexistent "$out/aot/PsMsgr.AotSmoke") 2>"$tmp/err"; then
     echo "check.sh: PsMsgr.AotSmoke ran without its library" >&2
     exit 1
 fi
