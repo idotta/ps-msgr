@@ -32,10 +32,6 @@ process requires them.
 
 ## Should fix
 
-- [ ] **`psmsgr-bench` heap overflow on 32-bit.** `--iterations` accepts up
-  to `UINT32_MAX` (`bench/psmsgr-bench.c:671`), and `malloc(cap * sizeof
-  *s->v)` (`:115`) wraps `size_t` above 2²⁹ samples. Cap the value or check
-  the multiplication.
 - [ ] **Binding code on armhf in CI.**
   - Python, C#, interop and example jobs run only on x86-64 and arm64.
   - `examples/check.sh:43-50` builds the `linux-arm` Native AOT examples but
