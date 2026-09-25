@@ -87,7 +87,11 @@ PSMSGR_API int psmsgr_state_publish(psmsgr_state_writer *w, const void *data, ui
                                     uint32_t *generation);
 
 /* Zero-copy publish. *buf points at `capacity` writable bytes (32-byte
- * aligned) until commit/abort. Exactly one of commit/abort must follow. */
+ * aligned) until commit/abort. Exactly one of commit/abort must follow.
+ * It saves publish's copy only when the value is built in *buf; a value
+ * already in a buffer of its own gains nothing over publish. On the
+ * BeagleBone Black the saving is negligible up to 256 B and about half at
+ * 64 KiB. */
 PSMSGR_API int psmsgr_state_begin(psmsgr_state_writer *w, void **buf);
 PSMSGR_API int psmsgr_state_commit(psmsgr_state_writer *w, uint32_t len, uint32_t *generation);
 PSMSGR_API int psmsgr_state_abort(psmsgr_state_writer *w);
