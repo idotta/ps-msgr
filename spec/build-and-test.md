@@ -422,7 +422,11 @@ works with any reader. `examples/check.sh [build-dir]` (default
 - ASan+UBSan on the unit and torture tests.
 - TSan on the unit and torture tests. Any report is a bug. TSan cannot see
   the seqlock race itself, because each handle maps the file separately
-  (state-channel.md §5.4); the torture test covers that.
+  (state-channel.md §5.4); the torture test covers that. TSan cannot map
+  its shadow memory with the ASLR entropy of current Ubuntu kernels
+  (`vm.mmap_rnd_bits=32`), so the `tsan` preset runs with ASLR off:
+  `PSMSGR_NO_ASLR=1 docker/run.sh cmake --workflow --preset tsan`, in CI
+  too.
 
 ## Conventions
 

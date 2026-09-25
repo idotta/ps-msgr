@@ -10,6 +10,9 @@
 # PSMSGR_BUILD_IMAGE overrides the image tag (default: psmsgr-build).
 # PSMSGR_REBUILD_IMAGE=1 forces a rebuild of the image.
 # PSMSGR_TORTURE_SECONDS, if set, is passed through to the container.
+# PSMSGR_NO_ASLR=1 runs the command with ASLR off (setarch -R), which TSan
+# needs on hosts with high ASLR entropy (vm.mmap_rnd_bits > 28). Docker's
+# default seccomp profile blocks that personality, so it is lifted too.
 set -eu
 
 repo=$(cd "$(dirname "$0")/.." && pwd -P)
@@ -28,8 +31,14 @@ esac
 tty=
 if [ -t 0 ] && [ -t 1 ]; then tty=-it; fi
 
-# shellcheck disable=SC2086  # $tty is intentionally empty or one word
-exec docker run --rm $tty \
+seccomp=
+if [ "${PSMSGR_NO_ASLR:-0}" = 1 ]; then
+    seccomp="--security-opt seccomp=unconfined"
+    set -- setarch -R "$@"
+fi
+
+# shellcheck disable=SC2086  # $tty and $seccomp are intentionally unquoted
+exec docker run --rm $tty $seccomp \
     --user "$(id -u):$(id -g)" \
     --env HOME=/tmp \
     --env PSMSGR_TORTURE_SECONDS \
