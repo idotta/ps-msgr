@@ -1,6 +1,6 @@
 # State channel — format and protocol
 
-Status: **draft**. Format version **1.0**.
+Status: **final**. Format version **1.0**.
 
 A *state channel* publishes the latest value of an opaque payload from one
 writer to any number of readers on the same host. Readers always get the most

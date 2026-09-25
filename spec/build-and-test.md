@@ -1,6 +1,6 @@
 # Build, packaging and test
 
-Status: **draft**.
+Status: **final**.
 
 ## Repository layout
 
@@ -13,6 +13,7 @@ CHANGELOG.md
 CMakeLists.txt                libpsmsgr
 CMakePresets.json
 cmake/                        toolchain file, package config, ABI check, Debian copyright
+abi/                          ABI snapshots (abidw) of each release
 include/psmsgr/psmsgr.h
 include/psmsgr/state.h
 src/                          implementation (state.c, futex/lock helpers, …)
@@ -68,6 +69,7 @@ the same image.
     need no cmocka at run time, on the board either.
   - `clang` (second compiler, sanitizers) and `clang-format` (the formatting
     reference)
+  - `abigail-tools` (`abidw`, `abidiff`: the release ABI snapshots)
   - `python3` with pytest, pip, setuptools and venv, and `ruff` (the Python
     linter and formatter). trixie does not package ruff, so the image
     installs a pinned release into a venv from its wheels, which BuildKit
@@ -145,6 +147,32 @@ the library get correct package dependencies.
   symbols. Node names must be `PSMSGR_<major>[.<minor>]`, with the
   library's major and a minor no newer than the library's. The SONAME must
   be `libpsmsgr.so.<major>`.
+- **ABI snapshots** (`abi/`): `abi_check` doesn't see struct layouts, so
+  each release records its public ABI, types and layouts included, per
+  architecture. After the `release` and `armhf-release` builds:
+
+  ```
+  abidw --headers-dir include/psmsgr --drop-private-types --no-corpus-path \
+        --no-comp-dir-path --short-locs \
+        --out-file abi/libpsmsgr-<version>-<amd64|armhf>.abi \
+        build/<release|armhf-release>/libpsmsgr.so.<version>
+  ```
+
+  A later build is compared against the last release's snapshot for the
+  same architecture:
+
+  ```
+  abidiff --drop-private-types --headers-dir2 include/psmsgr \
+          abi/libpsmsgr-<version>-amd64.abi build/release/libpsmsgr.so.<new>
+  ```
+
+  Exit status 0 means no change. The status is a bit mask: value 8
+  (`ABIDIFF_ABI_INCOMPATIBLE_CHANGE`, e.g. a removed symbol) always comes
+  with 4, so an incompatible change exits 12, and requires a SONAME bump.
+  Value 4 alone (`ABIDIFF_ABI_CHANGE`) does too, unless every reported
+  change is an added function or variable (which needs a new version
+  node, c-api.md): abidiff reports a changed struct size or layout with 4
+  only.
 - **No `libatomic`:** CI fails if `nm -D libpsmsgr.so.1` lists any
   `__atomic_*` symbol, or if `readelf -d` shows `libatomic` in `NEEDED`.
   Either would mean a non-lock-free (e.g. 64-bit) atomic slipped in, which
@@ -416,8 +444,8 @@ through `begin`/`commit`, the wake-up latency of `wait` and of polling a
 `NO_NOTIFY` channel, and the cost of `clock_gettime`, both through libc and
 as a raw syscall. Note whether it ran under `chrt`. Also commit the CSVs
 and the torture output to `bench/results/<date>-bbb-<commit>/`, the
-baseline the next run compares against. There are no numeric targets yet; the first measurement is in
-`bench/results/2026-09-24-bbb-6511c25/`.
+baseline the next run compares against. There are no numeric targets yet; the current baseline is
+`bench/results/2026-09-25-bbb-adea019/`.
 
 CI builds `psmsgr-bench` (in `dev`, `dev-clang` and `armhf-release`) but
 never runs it: numbers from x86 or qemu mean nothing.

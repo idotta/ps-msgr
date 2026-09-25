@@ -1,47 +1,3 @@
-# Changelog
-
-All notable changes to this project are documented in this file. The format
-is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
-library follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
-as described in [`spec/README.md`](spec/README.md).
-
-## [Unreleased]
-
-## [1.0.0] - 2026-09-25
-
-### Added
-
-- `libpsmsgr`: state channels (channel format 1.0), which publish the latest
-  value of a payload from one writer to many readers through a shared-memory
-  file.
-- `psmsgr-dump`: inspect a channel.
-- `psmsgr-bench`: on-target latency benchmark.
-- Debian packages for amd64 and armhf, a CMake package config and `psmsgr.pc`.
-- `ps_msgr`: the Python binding (`ctypes`, Python ≥ 3.11, no dependencies),
-  in `bindings/python/`.
-- `PsMsgr`: the C# binding (P/Invoke, `netstandard2.1`, Native AOT
-  compatible, no dependencies), in `bindings/csharp/`. CI builds its NuGet
-  package.
-- Build container: the .NET SDK 10 from Microsoft's apt repository.
-- `interop/`: cross-language tests with a C, a Python and a C# (Native AOT)
-  agent, every writer against every reader, and a CI job for them. They
-  replace the interop tests of the Python and C# bindings.
-- `examples/`: a writer and a reader of a motor status in C, Python and C#
-  (Native AOT, also for `linux-arm`), all on one channel, so that any
-  writer works with any reader. The C examples build in-tree
-  (`PSMSGR_BUILD_EXAMPLES`) or against an installed library.
-  `examples/check.sh` runs them against each other in CI.
-- `bench/results/2026-09-24-bbb-bindings-ebc2ba0/`: first run of the Python
-  and C# bindings (Native AOT for `linux-arm`), the interop suite and the
-  examples on a BeagleBone Black.
-- `abi/`: `abidw` snapshots of the 1.0.0 public ABI for amd64 and armhf.
-
-### On-target measurements
-
-BeagleBone Black at `adea019`, `performance` governor at 1000 MHz, channels
-in `/dev/shm`. `psmsgr-bench` without `chrt` (`bench.csv`):
-
-```csv
 # psmsgr: 1.0.0
 # kernel: Linux 6.18.39-bone44-preditor.2 armv7l
 # cpu: ARMv7 Processor rev 2 (v7l)
@@ -93,9 +49,3 @@ read (writer active),4096,727379,5083,6666,7333,1537750,0,
 read (writer active),65536,53492,71125,72417,383917,3408084,0,
 wait wake-up,16,2499,43333,148291,158875,970042,,0
 poll wake-up (100 us),16,2498,36875,103709,535833,2232250,,1
-```
-
-`bench-fifo.csv` is a second run under `chrt -f 50`, and
-`bench-batch100.csv` one with `--batch 100`. The torture test passed all 7
-tests at 1 s and at 60 s per variant. All of it is in
-[`bench/results/2026-09-25-bbb-adea019/`](bench/results/2026-09-25-bbb-adea019/).

@@ -14,9 +14,15 @@ writer to many readers through a shared-memory file in `/dev/shm`:
 - Readers can start before the writer.
 
 Status: the C library with state channels, `psmsgr-dump`, `psmsgr-bench`,
-the Python binding and the C# binding are implemented and tested in CI
-(x86-64, arm64, armhf under qemu); on-target validation is pending. See
-[`spec/`](spec/README.md).
+the Python binding and the C# binding are implemented and tested with the
+CI presets in the build container (x86-64, armhf under qemu); the CI
+workflow, which adds arm64, has not run for this release. On a BeagleBone
+Black, the C library passed the torture test and was benchmarked
+([`bench/results/2026-09-25-bbb-adea019/`](bench/results/2026-09-25-bbb-adea019/)),
+and the bindings, the interop suite and the examples ran, with one
+timing-sensitive interop test failing
+([`bench/results/2026-09-24-bbb-bindings-ebc2ba0/`](bench/results/2026-09-24-bbb-bindings-ebc2ba0/REPORT.md)).
+See [`spec/`](spec/README.md).
 
 | Directory | Contents |
 |---|---|

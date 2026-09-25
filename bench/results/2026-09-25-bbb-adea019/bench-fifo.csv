@@ -1,0 +1,51 @@
+# psmsgr: 1.0.0
+# kernel: Linux 6.18.39-bone44-preditor.2 armv7l
+# cpu: ARMv7 Processor rev 2 (v7l)
+# hardware: Generic AM33XX (Flattened Device Tree)
+# board: TI AM335x BeagleBone Black
+# cpus: 1 online
+# governor: performance, 1000 MHz
+# clocksource: dmtimer
+# cpuidle: arm_idle/ladder: WFI, mpu_gate
+# dir: /dev/shm/psmsgr-bench-0Zzfvw
+# settings: iterations 100000, warm-up 1000, batch 1, 5.0 s at 500 Hz per run
+test,size_bytes,n,min_ns,median_ns,p99_ns,max_ns,busy,missed
+timer overhead,,100000,1291,1292,1334,70584,,
+clock_gettime,,1000,1353,1353,1495,2348,,
+clock_gettime syscall,,1000,1293,1293,1426,1672,,
+getppid syscall,,1000,655,655,788,881,,
+psmsgr_now_ns,,1000,1423,1423,1562,1935,,
+publish NO_NOTIFY,16,100000,2916,3000,3000,5045334,,
+fill/publish NO_NOTIFY,16,100000,3000,3041,3042,393583,,
+begin/fill/commit NO_NOTIFY,16,100000,2958,3041,3042,79917,,
+begin/commit NO_NOTIFY,16,100000,2958,3000,3000,73750,,
+publish,16,100000,5583,5708,5792,114250,,
+read,16,100000,1708,1791,1792,233208,,
+peek,16,100000,1666,1708,1750,128459,,
+publish NO_NOTIFY,256,100000,3125,3167,3209,5129208,,
+fill/publish NO_NOTIFY,256,100000,3250,3292,3333,509250,,
+begin/fill/commit NO_NOTIFY,256,100000,3125,3125,3167,84333,,
+begin/commit NO_NOTIFY,256,100000,2958,3000,3000,71167,,
+publish,256,100000,5833,5917,6042,121125,,
+read,256,100000,1916,2000,2000,221625,,
+peek,256,100000,1666,1709,1750,69375,,
+publish NO_NOTIFY,4096,100000,6625,6958,7458,5313458,,
+fill/publish NO_NOTIFY,4096,100000,7958,8208,8709,148041,,
+begin/fill/commit NO_NOTIFY,4096,100000,5458,5500,5875,869959,,
+begin/commit NO_NOTIFY,4096,100000,2916,2959,3000,232625,,
+publish,4096,100000,9542,10292,11000,4138875,,
+read,4096,100000,5791,5958,6375,436042,,
+peek,4096,100000,1666,1709,1750,92875,,
+publish NO_NOTIFY,65536,100000,69125,72541,86417,5461458,,
+fill/publish NO_NOTIFY,65536,100000,90291,92167,107167,50713417,,
+begin/fill/commit NO_NOTIFY,65536,100000,45333,46416,58917,4070125,,
+begin/commit NO_NOTIFY,65536,100000,2958,2959,3000,4317583,,
+publish,65536,100000,74458,75875,92458,4272959,,
+read,65536,100000,71166,72167,85125,4317584,,
+peek,65536,100000,1666,1709,1750,70792,,
+read (writer active),16,2019785,1750,2458,2834,40857375,0,
+read (writer active),256,1867985,2000,2667,3125,4517083,0,
+read (writer active),4096,776024,5166,6458,7042,4408625,0,
+read (writer active),65536,68430,71125,72416,86583,5010291,0,
+wait wake-up,16,2499,42208,129625,135916,854000,,0
+poll wake-up (100 us),16,2499,41416,80625,463667,799416,,0
