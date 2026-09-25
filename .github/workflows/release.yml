@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: Apache-2.0
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release (e.g. v1.0.0)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build container
+        uses: docker/build-push-action@v7
+        with:
+          context: docker
+          file: docker/build.Dockerfile
+          tags: psmsgr-build
+          load: true
+          cache-from: type=gha,scope=psmsgr-build
+
+      - name: Debian packages (amd64)
+        run: docker/run.sh cmake --workflow --preset release
+
+      - name: Debian packages (armhf)
+        run: docker/run.sh cmake --workflow --preset armhf-release
+
+      - name: NuGet package
+        run: docker/run.sh bindings/csharp/check.sh
+
+      # Built from a copy, as in check.sh, so the source tree stays clean.
+      - name: Python wheel
+        run: >
+          docker/run.sh sh -c 'cp -R bindings/python "$HOME/python" &&
+          python3 -m pip wheel --quiet --no-deps --no-build-isolation
+          --wheel-dir build/release/python "$HOME/python"'
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="${TAG#v}" '/^## \[/ { p = index($0, "## [" v "]") == 1; next } p' \
+              CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" --verify-tag --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/notes.md" \
+              build/release/*.deb build/armhf-release/*.deb \
+              build/release/csharp/nupkg/*.nupkg build/release/python/*.whl
