@@ -35,8 +35,9 @@ RFC 2119. Sections marked *non-normative* are guidance only.
 
 ## Non-goals (for now)
 
-- Message queues: every message delivered, in order. Planned as a separate
-  component, see *Future components*.
+- Message queues: every message delivered, in order. Use D-Bus for
+  commands, events and requests that need a reply, or a Unix socket for a
+  high-rate stream; ps-msgr carries latest-value state only.
 - Communication across hosts, or across containers that don't share the
   shared-memory directory.
 - Payload serialization. The payload is an opaque byte string owned by the
@@ -74,11 +75,3 @@ Three independent version numbers:
    and whenever the library major version it loads changes, since it loads
    `libpsmsgr.so.<major>` by name. Each binding declares the minimum
    library version it needs and checks it at load time.
-
-## Future components (non-normative)
-
-**Queue channels** (messages with delivery and ordering guarantees) will get
-their own spec (`queue-channel.md`), file suffix, magic number and API prefix
-(`psmsgr_queue_*`), probably in the same repository and library, so that they
-share the build, packaging and binding infrastructure. The state-channel
-format and API do not depend on them.
