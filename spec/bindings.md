@@ -1,20 +1,22 @@
-# Bindings — Python and C#
+# Bindings — Python, C# and Go
 
 Status: **final**.
 
-Both bindings are thin wrappers over `libpsmsgr.so.1`. They MUST NOT access
+The bindings are thin wrappers over `libpsmsgr.so.1`. They MUST NOT access
 the channel files directly and MUST NOT reimplement any part of
 [state-channel.md](state-channel.md). What they add is idiomatic types,
 error mapping, and buffer management.
 
-The rules that apply to both:
+The rules that apply to all of them (Go differs where its section says so):
 
 - Load `libpsmsgr.so.1` by SONAME, not `libpsmsgr.so`: the unversioned
   symlink only exists in dev packages. Honor an override path in the
-  environment variable `PSMSGR_LIBRARY`.
+  environment variable `PSMSGR_LIBRARY`. (Go links the library at build
+  time instead.)
 - At load time, check `psmsgr_version()`: same major version, and at least
   the minimum minor version the binding needs. Fail loudly otherwise.
-- A reader owns one receive buffer of `capacity` bytes. When a result
+- A reader owns one receive buffer of `capacity` bytes (Python and C#; Go
+  reads into the caller's slice). When a result
   carries `PSMSGR_INFO_ATTACHED`, the binding calls `describe()` and
   reallocates the buffer if the capacity changed. Reads never allocate
   except for the returned copy (Python `bytes`, C# convenience overloads).
@@ -29,18 +31,20 @@ The rules that apply to both:
   Like the C flag it is reported once per attach. If the result that
   carried it raises instead (`PSMSGR_E_TOOSMALL` from a read into a
   caller's buffer), the next result reports it.
-- `PSMSGR_E_NODATA` is not an error: it maps to `None` / `false` / `null`. Every other
+- `PSMSGR_E_NODATA` is not an error: it maps to `None` / `false` / `null` /
+  `ok == false`. Every other
   negative code maps to an exception that carries the code and, for
   `PSMSGR_E_SYS`, the `errno`. `PSMSGR_E_BUSY` gets its own exception type
-  (`ChannelBusyError` / `PsMsgrError.Busy`), documented as transient.
+  (`ChannelBusyError` / `PsMsgrError.Busy`; in Go the code `ErrBusy`),
+  documented as transient.
 - `wait` handles `PSMSGR_E_INTR` itself. It checks for cancellation
-  (Python signals, C# `CancellationToken`) and then retries with the
-  remaining timeout.
+  (Python signals, C# `CancellationToken`, Go `context.Context`) and then
+  retries with the remaining timeout.
 - Timestamps are `CLOCK_MONOTONIC` ns, and each binding exposes the library's
   `now_ns()`, so an age is always `now_ns() - info.timestamp_ns`, computed on
   the same clock.
-- Handles are closed deterministically (context manager / `IDisposable`),
-  with a finalizer as a safety net.
+- Handles are closed deterministically (context manager / `IDisposable` /
+  `Close`), with a finalizer (Go: a cleanup) as a safety net.
 
 ## Python — `ps_msgr`
 
@@ -344,13 +348,164 @@ public enum PsMsgrError { Inval = -1, Sys = -2, NoData = -3, TooSmall = -4, TooB
   `[StructLayout(LayoutKind.Sequential, Pack = …)]`, matching the C
   definition.
 
+## Go — `psmsgr`
+
+Module `github.com/ps-solucoes/ps-msgr/bindings/go`, package `psmsgr`
+(`bindings/go/psmsgr/`). Go ≥ 1.24, the version trixie ships (the
+`#cgo noescape`/`nocallback` directives and `runtime.AddCleanup` need it).
+No dependencies beyond the standard library. Released with tags
+`bindings/go/vX.Y.Z`.
+
+### Native interop
+
+- **cgo, linked at build time**, like a C program: `#cgo LDFLAGS:
+  -lpsmsgr`, against `libpsmsgr-dev`. The executable records
+  `libpsmsgr.so.1` (the SONAME) as `NEEDED`, so the load-by-SONAME rule
+  holds. The build tag `psmsgr_static` links `-l:libpsmsgr.a` instead, and
+  the executable needs no libpsmsgr. A non-installed library is found
+  through `CGO_CFLAGS`/`CGO_LDFLAGS` at build time and `LD_LIBRARY_PATH` at
+  run time.
+  - `PSMSGR_LIBRARY` is not honored: the dynamic linker has loaded the
+    library before any Go code runs. Loading it with `dlopen` instead would
+    lose the header's types, the static build and the linker's symbol
+    version check.
+  - The dynamic linker checks the major (SONAME) and the symbol versions.
+    The first `OpenWriter`, `OpenReader` or `Unlink` also checks
+    `psmsgr_version()` and returns an `*Error` with code `ErrNotSup` if the
+    major differs or the minor is older than the binding needs.
+- The structs and constants are the header's own (`C.psmsgr_state_info`,
+  …), so there are no mirrors to compare with `interop_helper layout`. The
+  exported `Code` constants are written out for the documentation, and
+  checked against the header at compile time: a difference fails the build.
+  Options are set up with `psmsgr_state_options_init_sized(&opt,
+  sizeof(opt))`, and `Describe` calls `psmsgr_state_describe_sized(r,
+  &desc, sizeof(desc))`.
+- Every C function is declared `#cgo nocallback` (the C API calls nothing
+  back), and those that take pointers `#cgo noescape` (none keeps one), so
+  the Go values passed stay on the stack: the hot path (`Publish`,
+  `PublishValue`, `PublishFunc`, `Read` with room in `dst`, `ReadValue`,
+  `Peek`, `NowNs`) allocates nothing, which the tests check. Each call is
+  one cgo call.
+- Payload bytes pass to C in place: Go memory without Go pointers, as cgo
+  requires. Names and directories are copied to C strings (`C.CString`),
+  only when opening and in `Unlink`.
+- `errno` comes from cgo's two-result call form, for the calls that can
+  return `PSMSGR_E_SYS`.
+- `runtime.KeepAlive` follows each call on a handle, so that the handle's
+  cleanup cannot close it during the call.
+
+### Interface
+
+```go
+package psmsgr
+
+type WriterOptions struct {                   // the zero value is the defaults
+    SlotCount   uint32 // 0: 3
+    PayloadType uint32
+    Mode        uint32 // 0: 0o644
+    Recreate    bool
+    NoNotify    bool
+    Dir         string // "": $PSMSGR_DIR, else /dev/shm
+}
+
+func OpenWriter(name string, capacity uint32, opts *WriterOptions) (*Writer, error) // opts nil: defaults
+func (w *Writer) Capacity() uint32
+func (w *Writer) Publish(data []byte) (generation uint32, err error)
+func (w *Writer) PublishFunc(build func(buf []byte) (int, error)) (generation uint32, err error)
+func (w *Writer) Close() error
+func PublishValue[T any](w *Writer, v *T) (generation uint32, err error)
+
+func OpenReader(name, dir string) (*Reader, error)
+func (r *Reader) Read(dst []byte) (data []byte, info Info, ok bool, err error) // appends to dst
+func (r *Reader) Peek() (info Info, ok bool, err error)                          // no copy, no syscall
+func (r *Reader) Wait(ctx context.Context, lastGeneration uint32, timeout time.Duration) (bool, error)
+func (r *Reader) WriterAlive() (bool, error)
+func (r *Reader) Describe() (desc ChannelDesc, ok bool, err error)              // ok false: not attached
+func (r *Reader) Close() error
+func ReadValue[T any](r *Reader, v *T) (info Info, ok bool, err error)
+
+type Info struct { Generation, Length uint32; TimestampNs uint64; Attached bool }
+func (i Info) Age() time.Duration                                                // NowNs() - TimestampNs
+type ChannelDesc struct { Capacity, SlotCount, PayloadType uint32; Notify bool }
+
+const NoTimeout time.Duration = -1
+func NowNs() uint64
+func Unlink(name, dir string) (bool, error)                                     // false: absent
+
+type Code int32                               // PSMSGR_E_*; implements error
+const ( ErrInval Code = -1; ErrSys = -2; /* … */ ErrState = -13 )
+type Error struct {
+    Op      string                            // e.g. "open writer", "publish"
+    Channel string
+    Code    Code
+    Errno   syscall.Errno                     // ErrSys only, else 0
+    Msg     string                            // the binding's own text, if any
+}
+func (e *Error) Is(target error) bool          // target == e.Code
+func (e *Error) Unwrap() error                 // e.Errno, if any
+var ErrClosed error
+```
+
+- Results: `ok == false` for `PSMSGR_E_NODATA`; every other failure is an
+  `*Error`, so `errors.Is(err, psmsgr.ErrBusy)` and, through `Errno`,
+  `errors.Is(err, fs.ErrNotExist)` work. The message is
+  `psmsgr: <op> "<channel>": <text>`, where the text is `Msg`, else
+  `Errno`'s for `ErrSys`, else `psmsgr_strerror(code)`. Calls on a closed
+  handle return `ErrClosed`.
+- The binding's own checks return an `*Error` with code `ErrInval`: a NUL
+  character in a name or directory, a negative length from `PublishFunc`'s
+  `build`, a `PublishValue`/`ReadValue` type with pointers. A payload
+  longer than the capacity is `ErrTooBig` before any call, so that a
+  length beyond `uint32` cannot wrap.
+- Zero values are defaults: `WriterOptions{}`, `SlotCount` and `Mode` 0,
+  and `Dir` `""` (passed as `NULL`).
+- `Read(dst)` appends the value to `dst` and returns the extended slice,
+  like `append`. It reads into the room between `len(dst)` and `cap(dst)`;
+  on `PSMSGR_E_TOOSMALL` it grows `dst` by the reported length and retries
+  (a few times, then `ErrBusy`). So there is no receive buffer to resize on
+  attach, and a reused `dst` reads without allocating.
+- `PublishValue`/`ReadValue` copy the `unsafe.Sizeof(*v)` raw bytes of a
+  `T` without pointers (no pointer, slice, string, map, chan, func or
+  interface anywhere in it), checked with `reflect` once per type:
+  arbitrary bytes written into a pointer field would corrupt the Go heap.
+  `ReadValue` reads straight into `*v`, and fails with `ErrMismatch` when
+  the payload length isn't `unsafe.Sizeof(*v)`, in either direction;
+  `*v` may then be overwritten. Like a `TooSmall` in the other bindings,
+  such a result passes its `Attached` on to the next result.
+- `PublishFunc` is the zero-copy publish: `begin`, then `build` on the
+  slot (`Capacity` bytes, the C buffer as a slice), then `commit` of the
+  length it returns. An error from `build`, a panic, or a length out of
+  range aborts instead. The slice aliases shared memory and must not be
+  used after `build` returns; a callback, rather than a begin/commit pair,
+  makes that the natural scope.
+- `Wait`: a timeout of 0 polls once, a positive one is rounded up to whole
+  milliseconds (so it never becomes a poll), and a negative one
+  (`NoTimeout`) waits indefinitely; any `time.Duration` works, since the
+  wait runs in slices of at most 100 ms. Before each slice it checks `ctx`
+  (returns `ctx.Err()`, or `context.DeadlineExceeded` at `ctx`'s deadline,
+  which also bounds the slice) and whether the reader was closed
+  (`ErrClosed`). `PSMSGR_E_INTR` is retried: Go installs its own handlers
+  with `SA_RESTART`, so it comes only from handlers installed by C code.
+- Handles are not safe for concurrent use, like the C handles. The
+  exception: another goroutine may `Close` a reader during `Wait` or
+  `WriterAlive`. These two take the handle under the reader's mutex and
+  count themselves; `Close` returns at once, and the last of them to
+  return closes the native handle. The other calls read the handle
+  without the mutex (a `Close` concurrent with them is a data race, as
+  with any Go value), so the hot path takes no lock.
+- `Close` is idempotent and returns `nil`. `runtime.AddCleanup` closes a
+  handle that is garbage collected without `Close`; `Close` cancels it.
+- Payload structs need fixed-width fields and explicit padding to match C
+  on every architecture: on 32-bit ARM, Go aligns `uint64` to 4 bytes and
+  C to 8 (the motor-status struct needs a trailing `_ uint32`).
+
 ## Payload conventions (non-normative)
 
 The library never looks at the payload. Some suggestions for applications:
 
 - For hot, fixed-size state, use plain structs with fixed-width
   little-endian fields and explicit padding, defined once in a C header and
-  mirrored in `ctypes.Structure` / `[StructLayout]`.
+  mirrored in `ctypes.Structure` / `[StructLayout]` / a Go struct.
 - Put a schema identifier in `payload_type`, e.g. a 16-bit schema ID in the
   upper half and a 16-bit schema version in the lower half. Readers check it with
   `describe()` before trusting the bytes.

@@ -33,6 +33,10 @@ bindings/
     PsMsgr/PsMsgr.csproj
     PsMsgr.Tests/PsMsgr.Tests.csproj
     PsMsgr.AotSmoke/          Native AOT smoke test (CI only)
+  go/
+    go.mod                    module github.com/ps-solucoes/ps-msgr/bindings/go
+    check.sh                  gofmt, go vet, go test (also -race, static, linux/arm under qemu)
+    psmsgr/                   cgo binding and its tests
 interop/                      cross-language tests: C, Python and C# writers × readers
   README.md                   the agent protocol and the scenarios
   check.sh                    builds the agents, pytest, ruff, dotnet format
@@ -74,6 +78,8 @@ the same image.
     linter and formatter). trixie does not package ruff, so the image
     installs a pinned release into a venv from its wheels, which BuildKit
     fetches and checks against their SHA-256.
+  - `golang-go` (trixie's Go, 1.24) for the Go binding. It cross-builds
+    for `linux/arm` with `arm-linux-gnueabihf-gcc` as the cgo compiler.
   - the .NET SDK (current LTS, 10) for the C# binding, and `zlib1g-dev`,
     which Native AOT links against. trixie does not package the SDK, so the
     image installs it from Microsoft's apt repository
@@ -242,6 +248,26 @@ cached in `build/nuget` (`NUGET_PACKAGES` overrides it).
 `bindings/csharp/PsMsgr.AotSmoke/` is a console app that calls every public
 API, used only by `check.sh`.
 
+## Go
+
+A module in `bindings/go` with no dependencies; `go.mod` sets the minimum
+Go version. The package links the C library through cgo, so the tests
+build against a build of it: `CGO_CFLAGS=-I include`,
+`CGO_LDFLAGS=-L <build>` and `LD_LIBRARY_PATH=<build>`. They take
+`tests/interop_helper` (a writer in another process) from
+`$PSMSGR_BUILD_DIR`, and skip only that test when it is unset.
+
+`bindings/go/check.sh [build-dir [armhf-build-dir]]` (defaults
+`build/release` and `build/armhf-release`) is what CI runs, in the build
+container: `gofmt -l` (must be empty) and `go vet`, then the tests linked
+dynamically, with `-race`, and linked statically (`psmsgr_static`; the
+test binary must not need `libpsmsgr.so.1`), and the benchmarks for 100
+iterations. The tests include runnable examples, and check that the hot
+path allocates nothing. If the armhf build exists, the tests are also
+cross-built for `linux/arm` (`GOARM=7`) and run under `qemu-arm`: 32-bit
+ARM is where Go's struct alignment differs from C's. The Go build cache is
+`build/go` (`GOCACHE` overrides it).
+
 ## Tests
 
 The C unit tests use cmocka 2's current API: typed assertions
@@ -402,9 +428,10 @@ works with any reader. `examples/check.sh [build-dir]` (default
 
 - Every source file starts with `SPDX-License-Identifier: Apache-2.0`.
 - Formatting and linting are enforced in CI: `.clang-format` for C, `ruff`
-  for Python, `.editorconfig` plus `dotnet format` for C# (in the
-  `check.sh` of `bindings/csharp`, `interop` and `examples`; the build also
-  fails on the style rules marked `warning`). The format job checks every
+  for Python, `gofmt` and `go vet` for Go (`bindings/go/check.sh`), and
+  `.editorconfig` plus `dotnet format` for C# (in the `check.sh` of
+  `bindings/csharp`, `interop` and `examples`; the build also fails on the
+  style rules marked `warning`). The format job checks every
   C source in git, examples included. `.editorconfig`
   also sets encoding, line endings and indentation for every other file.
 - The C check uses the build container's `clang-format`, because releases
@@ -420,8 +447,9 @@ works with any reader. `examples/check.sh [build-dir]` (default
 |---|---|
 | x86-64, gcc + clang, ASan/UBSan, TSan | Main correctness gate. All jobs run in the build container. |
 | Format | `clang-format --dry-run --Werror` on the C and C++ sources, in the build container. |
-| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. Also runs `bindings/python/check.sh`, `bindings/csharp/check.sh`, `interop/check.sh` and `examples/check.sh` (Native AOT for `linux-arm64`), the binding, interop and example tests on weakly ordered memory. |
+| AArch64 native runner (`ubuntu-24.04-arm`), `release` preset | Weakly ordered memory on real hardware: runs the torture test for 10 s per variant and prints its counters from CTest's `LastTest.log`, since CTest shows the output of passing tests only in verbose mode. x86 hides ordering bugs, and qemu-user on an x86 host keeps x86 ordering, so the armhf job cannot catch them. Uses the arm64 build of the same container image. Also runs `bindings/python/check.sh`, `bindings/csharp/check.sh`, `bindings/go/check.sh`, `interop/check.sh` and `examples/check.sh` (Native AOT for `linux-arm64`), the binding, interop and example tests on weakly ordered memory. |
 | armhf cross build + tests under `qemu-arm` | Target ABI (32-bit atomics, alignment, 64-bit `time_t`) plus the `libatomic` check. |
+| Go (x86-64) | `release` preset, and the `armhf-release` library (configure and build only), then `bindings/go/check.sh`: gofmt, go vet, the tests (dynamic, `-race`, static) and the tests for `linux/arm` under `qemu-arm`. |
 | Python (x86-64) | `release` preset, then `bindings/python/check.sh`: binding tests against the installed wheel, and ruff. |
 | C# (x86-64) | `release` preset, then `bindings/csharp/check.sh`: binding tests on .NET LTS, `dotnet format`, the Native AOT smoke below, and the `.nupkg` as an artifact. |
 | Interop (x86-64) | `release` preset, then `interop/check.sh`: the cross-language suite with the C agent, the Python agent on the installed wheel and the C# agent published with Native AOT for linux-x64, then ruff and `dotnet format`. Then `examples/check.sh` (see *Examples*). |
