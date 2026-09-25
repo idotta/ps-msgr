@@ -52,7 +52,7 @@ examples/                     one small writer/reader pair per language, all on 
   csharp/                     MotorWriter/, MotorReader/ (Native AOT), MotorStatus.cs (the mirror)
 docker/build.Dockerfile       the build container: CI and local builds
 docker/run.sh                 runs a command in the build container
-.github/workflows/
+.github/workflows/            ci.yml, release.yml
 ```
 
 ## Toolchain
@@ -455,6 +455,17 @@ works with any reader. `examples/check.sh [build-dir]` (default
 | Interop (x86-64) | `release` preset, then `interop/check.sh`: the cross-language suite with the C agent, the Python agent on the installed wheel and the C# agent published with Native AOT for linux-x64, then ruff and `dotnet format`. Then `examples/check.sh` (see *Examples*). |
 | C# Native AOT (in the C# job) | `dotnet publish` of `PsMsgr.AotSmoke` (`PublishAot=true`) with `TrimmerSingleWarn=false` (per-warning detail for library code) and IL2xxx/IL3xxx as errors (`TreatWarningsAsErrors`). Publish-time analysis only covers code the app reaches, so the smoke app MUST call every public API, including the generic helpers with a sample struct. Builds for linux-x64 and runs it. |
 | CPack | Build the `.deb` for armhf and amd64. |
+
+## Releases
+
+Pushing a `v<version>` tag runs `.github/workflows/release.yml` (it can
+also be run by hand for an existing tag). In the build container it runs
+the `release` and `armhf-release` workflow presets, `bindings/csharp/check.sh`
+and builds the Python wheel, then creates the GitHub release for the tag:
+its notes are the tag's section of `CHANGELOG.md`, and it carries the
+`.deb` packages for amd64 and armhf, the `.nupkg` and the `.whl`. The Go
+binding is released by its own `bindings/go/v<version>` tag, from which
+`go get` fetches it.
 
 ## On-target validation (before each release)
 

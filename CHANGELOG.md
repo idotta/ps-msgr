@@ -7,6 +7,11 @@ as described in [`spec/README.md`](spec/README.md).
 
 ## [Unreleased]
 
+### Added
+
+- `release` workflow: a `v*` tag creates the GitHub release, with the
+  `.deb` packages, the `.nupkg` and the `.whl` attached.
+
 ## [1.0.0] - 2026-09-25
 
 ### Added
