@@ -82,7 +82,9 @@ that tells a stale writer from a dead one, and Ctrl-C.
   otherwise.
 - Errors raise `PsMsgrError` (an `OSError`) or one of its subclasses; `code`
   is the library's result code.
-- Handles are not thread-safe: use one per thread.
+- Handles are not thread-safe: use one per thread. The exception: closing
+  a reader from another thread stops its `wait()` with `ValueError` within
+  100 ms.
 
 ## Development
 

@@ -92,7 +92,9 @@ publishing for the BeagleBone Black.
 - Errors throw `PsMsgrException` (an `IOException`); `Code` is the library's
   result code, `Errno` the system error for `PsMsgrError.Sys`. `Busy` is
   transient: retry.
-- Handles are `IDisposable` and not thread-safe: use one per thread.
+- Handles are `IDisposable` and not thread-safe: use one per thread. The
+  exception: disposing a reader from another thread stops its `Wait` with
+  `ObjectDisposedException` within 100 ms.
 
 ## Native AOT
 

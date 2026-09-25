@@ -4,6 +4,7 @@ from __future__ import annotations
 import math
 import operator
 import os
+import threading
 import time
 import warnings
 from ctypes import Array, byref, c_char, c_uint32, sizeof
@@ -17,7 +18,8 @@ from ._errors import PayloadTooLargeError, error
 StrPath = str | os.PathLike[str]
 
 _U32_MAX: Final = 0xFFFF_FFFF
-_I32_MAX: Final = 0x7FFF_FFFF
+# wait() waits in slices so that a close() from another thread stops it.
+_WAIT_SLICE_MS: Final = 100
 # A TOOSMALL after resizing to the described capacity means the channel was
 # replaced in between; more than a few in a row is not going to happen.
 _READ_ATTEMPTS: Final = 4
@@ -222,9 +224,11 @@ class StateReader:
         "_h",
         "_info",
         "_info_ref",
+        "_lock",
         "_name",
         "_pending",
         "_recheck",
+        "_users",
     )
 
     _close_fn = _native.state_reader_close
@@ -232,6 +236,10 @@ class StateReader:
     def __init__(self, name: str, *, directory: StrPath | None = None) -> None:
         self._h: Any = None
         self._name = name
+        self._lock = threading.Lock()
+        # Calls in progress that release the GIL (wait, writer_alive): close()
+        # leaves the handle open for the last of them to close.
+        self._users = 0
         h = _native.ReaderPtr()
         rc = _native.state_reader_open(_encode_name(name), _encode_dir(directory), byref(h))
         if rc != _native.OK:
@@ -255,6 +263,21 @@ class StateReader:
         if h is None:
             raise _closed(self)
         return h
+
+    def _enter(self) -> Any:
+        with self._lock:
+            h = self._h
+            if h is None:
+                raise _closed(self)
+            self._users += 1
+            return h
+
+    def _leave(self, h: Any) -> None:
+        with self._lock:
+            self._users -= 1
+            last = self._h is None and self._users == 0
+        if last:
+            self._close_fn(h)
 
     def _attached(self) -> bool:
         attached = self._pending or bool(self._info.flags & _native.INFO_ATTACHED)
@@ -350,8 +373,8 @@ class StateReader:
         until there is any value). ``timeout`` in seconds: None waits
         indefinitely, 0 polls once. False on timeout. Signal handlers run
         while waiting (a KeyboardInterrupt propagates); the wait then
-        resumes with the remaining time (PEP 475)."""
-        h = self._handle()
+        resumes with the remaining time (PEP 475). A ``close()`` from
+        another thread makes it raise ``ValueError`` within 100 ms."""
         last = _u32("last_generation", last_generation)
         deadline = None
         if timeout is not None:
@@ -360,27 +383,37 @@ class StateReader:
                 raise ValueError(f"timeout must be non-negative or None, not {timeout!r}")
             if t != math.inf:
                 deadline = time.monotonic_ns() + int(t * 1e9)
-        while True:
-            if deadline is None:
-                ms = -1
-            else:
-                remaining = deadline - time.monotonic_ns()
-                ms = min(-(-remaining // 1_000_000), _I32_MAX) if remaining > 0 else 0
-            rc = _native.state_wait(h, last, ms)
-            if rc == _native.OK:
-                return True
-            if rc == _native.E_TIMEOUT:
-                if deadline is not None and (ms == 0 or time.monotonic_ns() >= deadline):
-                    return False
-            elif rc == _native.E_INTR:
-                _native.check_signals()
-            else:
-                raise error(rc, self._name)
+        h = self._enter()
+        try:
+            while True:
+                if self._h is None:
+                    raise _closed(self)
+                if deadline is None:
+                    ms = _WAIT_SLICE_MS
+                else:
+                    remaining = deadline - time.monotonic_ns()
+                    ms = min(-(-remaining // 1_000_000), _WAIT_SLICE_MS) if remaining > 0 else 0
+                rc = _native.state_wait(h, last, ms)
+                if rc == _native.OK:
+                    return True
+                if rc == _native.E_TIMEOUT:
+                    if deadline is not None and (ms == 0 or time.monotonic_ns() >= deadline):
+                        return False
+                elif rc == _native.E_INTR:
+                    _native.check_signals()
+                else:
+                    raise error(rc, self._name)
+        finally:
+            self._leave(h)
 
     def writer_alive(self) -> bool:
         """Whether a writer holds the channel now. Makes syscalls; also
         reattaches if the channel file was replaced."""
-        rc: int = _native.state_writer_alive(self._handle())
+        h = self._enter()
+        try:
+            rc: int = _native.state_writer_alive(h)
+        finally:
+            self._leave(h)
         if rc >= 0:
             return rc == 1
         raise error(rc, self._name)
@@ -405,10 +438,15 @@ class StateReader:
         return self._h is None
 
     def close(self) -> None:
-        h, self._h = self._h, None
+        """Closes the reader. Another thread may call it during ``wait`` or
+        ``writer_alive``; the handle then closes when that call returns."""
+        with self._lock:
+            h, self._h = self._h, None
+            deferred = self._users != 0
         if h is not None:
             self._buf = None
-            self._close_fn(h)
+            if not deferred:
+                self._close_fn(h)
 
     def __enter__(self) -> Self:
         if self._h is None:

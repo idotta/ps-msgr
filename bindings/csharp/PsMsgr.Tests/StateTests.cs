@@ -388,6 +388,25 @@ public sealed class StateTests : ChannelTest
     }
 
     [Fact]
+    public async Task DisposeStopsWait()
+    {
+        using var w = OpenWriter(8);
+        uint gen = w.Publish(B("a"));
+        foreach (TimeSpan timeout in new[] { Timeout.InfiniteTimeSpan, TimeSpan.FromSeconds(30) })
+        {
+            var r = OpenReader();
+            var waiting = Task.Run(() => r.Wait(gen, timeout));
+            await Task.Delay(50); // likely blocked by now; the test holds either way
+            var sw = Stopwatch.StartNew();
+            r.Dispose();
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.InRange(sw.Elapsed, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+            Assert.Throws<ObjectDisposedException>(() => r.IsWriterAlive);
+            Assert.Throws<ObjectDisposedException>(() => r.Wait(gen, TimeSpan.Zero));
+        }
+    }
+
+    [Fact]
     public void WaitResumesAfterSignals()
     {
         using var w = OpenWriter(8);

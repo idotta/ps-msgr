@@ -14,7 +14,8 @@ public sealed unsafe class StateReader : IDisposable
     // A TOOSMALL after resizing to the described capacity means the channel was
     // replaced in between; more than a few in a row is not going to happen.
     private const int ReadAttempts = 4;
-    private const int CancelSliceMs = 100;
+    // Wait waits in slices, so that a cancellation or a Dispose from another thread stops it.
+    private const int WaitSliceMs = 100;
 
     private readonly ReaderHandle _handle;
     private readonly string _name;
@@ -24,6 +25,9 @@ public sealed unsafe class StateReader : IDisposable
     private bool _recheck;
     // An attach consumed by a result that threw: reported by the next result instead.
     private bool _pending;
+    // Set by Dispose. The handle alone can't tell: it stays open while Wait or
+    // IsWriterAlive holds a reference, and doesn't report closed until released.
+    private volatile bool _disposed;
 
     private StateReader(ReaderHandle handle, string name)
     {
@@ -184,17 +188,16 @@ public sealed unsafe class StateReader : IDisposable
     /// <summary>
     /// Blocks until the generation differs from <paramref name="lastGeneration"/> (0: until
     /// there is any value). False on timeout. <see cref="Timeout.InfiniteTimeSpan"/> waits
-    /// indefinitely, <see cref="TimeSpan.Zero"/> polls once. With a cancelable
-    /// <paramref name="cancellationToken"/>, the token is checked at least every 100 ms.
-    /// Fails with <see cref="PsMsgrError.NotSup"/> on a channel without notification.
+    /// indefinitely, <see cref="TimeSpan.Zero"/> polls once. The token, and whether another
+    /// thread disposed the reader (<see cref="ObjectDisposedException"/>), are checked at
+    /// least every 100 ms. Fails with <see cref="PsMsgrError.NotSup"/> on a channel
+    /// without notification.
     /// </summary>
     public bool Wait(uint lastGeneration, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
-        IntPtr h = Handle();
         bool infinite = timeout == Timeout.InfiniteTimeSpan;
         if (!infinite && timeout < TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(timeout), timeout, "must be non-negative or Timeout.InfiniteTimeSpan");
-        bool cancelable = cancellationToken.CanBeCanceled;
         ulong deadline = 0;
         if (!infinite)
         {
@@ -205,36 +208,41 @@ public sealed unsafe class StateReader : IDisposable
             ulong now = Native.psmsgr_now_ns();
             deadline = ulong.MaxValue - now < ns ? ulong.MaxValue : now + ns;
         }
-        while (true)
+        IntPtr h = AddRef();
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            int ms;
-            if (infinite)
+            while (true)
             {
-                ms = cancelable ? CancelSliceMs : -1;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_disposed)
+                    throw new ObjectDisposedException(nameof(StateReader));
+                int ms = WaitSliceMs;
+                if (!infinite)
+                {
+                    ulong now = Native.psmsgr_now_ns();
+                    // Rounded up, so that a positive remainder never becomes a poll.
+                    ulong remaining = now >= deadline ? 0 : (deadline - now + 999_999) / 1_000_000;
+                    ms = (int)Math.Min(remaining, (ulong)WaitSliceMs);
+                }
+                int rc = Native.psmsgr_state_wait(h, lastGeneration, ms);
+                if (rc == Native.Ok)
+                    return true;
+                if (rc == (int)PsMsgrError.Timeout)
+                {
+                    if (!infinite && (ms == 0 || Native.psmsgr_now_ns() >= deadline))
+                        return false;
+                }
+                // INTR: the runtime signals threads too (e.g. to suspend them for a GC), so
+                // it is expected; retry with the remaining time.
+                else if (rc != (int)PsMsgrError.Intr)
+                {
+                    throw PsMsgrException.FromResult(rc, _name);
+                }
             }
-            else
-            {
-                ulong now = Native.psmsgr_now_ns();
-                // Rounded up, so that a positive remainder never becomes a poll.
-                ulong remaining = now >= deadline ? 0 : (deadline - now + 999_999) / 1_000_000;
-                ms = (int)Math.Min(remaining, (ulong)(cancelable ? CancelSliceMs : int.MaxValue));
-            }
-            int rc = Native.psmsgr_state_wait(h, lastGeneration, ms);
-            GC.KeepAlive(this);
-            if (rc == Native.Ok)
-                return true;
-            if (rc == (int)PsMsgrError.Timeout)
-            {
-                if (!infinite && (ms == 0 || Native.psmsgr_now_ns() >= deadline))
-                    return false;
-            }
-            // INTR: the runtime signals threads too (e.g. to suspend them for a GC), so
-            // it is expected; retry with the remaining time.
-            else if (rc != (int)PsMsgrError.Intr)
-            {
-                throw PsMsgrException.FromResult(rc, _name);
-            }
+        }
+        finally
+        {
+            _handle.DangerousRelease();
         }
     }
 
@@ -244,8 +252,16 @@ public sealed unsafe class StateReader : IDisposable
     {
         get
         {
-            int rc = Native.psmsgr_state_writer_alive(Handle());
-            GC.KeepAlive(this);
+            IntPtr h = AddRef();
+            int rc;
+            try
+            {
+                rc = Native.psmsgr_state_writer_alive(h);
+            }
+            finally
+            {
+                _handle.DangerousRelease();
+            }
             if (rc >= 0)
                 return rc == 1;
             throw PsMsgrException.FromResult(rc, _name);
@@ -266,9 +282,11 @@ public sealed unsafe class StateReader : IDisposable
         throw PsMsgrException.FromResult(rc, _name);
     }
 
-    /// <summary>Closes the reader.</summary>
+    /// <summary>Closes the reader. Another thread may call it during <see cref="Wait"/> or
+    /// <see cref="IsWriterAlive"/>; the native handle then closes when that call returns.</summary>
     public void Dispose()
     {
+        _disposed = true;
         _handle.Dispose();
         _buf = null;
     }
@@ -302,8 +320,18 @@ public sealed unsafe class StateReader : IDisposable
 
     private IntPtr Handle()
     {
-        if (_handle.IsClosed)
+        if (_disposed)
             throw new ObjectDisposedException(nameof(StateReader));
         return _handle.DangerousGetHandle();
+    }
+
+    // For the calls that another thread may dispose the reader during: the native handle
+    // stays open until the matching DangerousRelease. Throws if already disposed.
+    private IntPtr AddRef()
+    {
+        IntPtr h = Handle();
+        bool added = false;
+        _handle.DangerousAddRef(ref added);
+        return h;
     }
 }

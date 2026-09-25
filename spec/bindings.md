@@ -69,7 +69,8 @@ The rules that apply to both:
   Signals reach Python handlers only in the main thread.
 - Timeouts are float seconds: `None` (or `math.inf`) waits indefinitely, `0`
   polls once, and a positive value is rounded up to whole milliseconds per
-  call, so it never becomes a poll. Negative or NaN raises `ValueError`.
+  call, so it never becomes a poll. `wait` waits in slices of at most
+  100 ms. Negative or NaN raises `ValueError`.
 - Integer arguments are checked against their C type (`uint32_t`) and
   raise `ValueError` out of range, instead of being truncated by `ctypes`.
   A channel name or directory with a NUL character raises `ValueError`. The
@@ -83,6 +84,12 @@ The rules that apply to both:
   closes a forgotten handle and emits a `ResourceWarning`, like an unclosed
   file. Calls on a closed handle raise `ValueError`. Like the C handles,
   the objects are not thread-safe: use one per thread.
+- The one exception: another thread may `close()` a reader during `wait` or
+  `writer_alive`, which release the GIL. `close()` returns at once and the
+  reader counts as closed; the call in progress closes the native handle
+  when it returns, and `wait` raises `ValueError` before its next slice.
+  This is the way to stop a thread blocked in `wait(timeout=None)`. A
+  per-reader lock and a count of those calls in progress implement it.
 
 ```python
 from ps_msgr import StateWriter, StateReader, Snapshot, StateInfo, now_ns, unlink
@@ -207,6 +214,13 @@ Rules that keep it that way:
     the hot path. Each call is followed by `GC.KeepAlive(this)`, so that the
     handle's finalizer cannot close it during the call (e.g. a blocking
     `Wait` on an otherwise unreferenced reader).
+  - The exception: another thread may `Dispose` a reader during `Wait` or
+    `IsWriterAlive`. These two hold a reference on the handle
+    (`DangerousAddRef`/`DangerousRelease`, instead of `GC.KeepAlive`), so
+    the native handle closes when the call returns. The reader keeps its
+    own disposed flag, because a `SafeHandle` with a reference outstanding
+    doesn't report `IsClosed`. `Wait` then throws `ObjectDisposedException`
+    before its next slice.
   - Calls that can return `PSMSGR_E_SYS` according to the header
     (`writer_open`, `reader_open`, `read`, `peek`, `wait`, `writer_alive`,
     `describe`, `unlink`) use `SetLastError = true`. `errno` is read with
@@ -307,9 +321,10 @@ public enum PsMsgrError { Inval = -1, Sys = -2, NoData = -3, TooSmall = -4, TooB
 - `Wait`: `Timeout.InfiniteTimeSpan` means no timeout, `TimeSpan.Zero` polls
   once, and a positive timeout is rounded up to whole milliseconds per call,
   so it never becomes a poll. Timeouts beyond the C API's `int32_t`
-  milliseconds (up to `TimeSpan.MaxValue`) are waited in chunks. With a
-  cancelable `CancellationToken`, it waits in slices of at most 100 ms and
-  checks the token before each slice (`OperationCanceledException`).
+  milliseconds (up to `TimeSpan.MaxValue`) are waited in chunks. It waits in
+  slices of at most 100 ms, and before each slice checks the
+  `CancellationToken` (`OperationCanceledException`) and whether the reader
+  was disposed (`ObjectDisposedException`).
   `PSMSGR_E_INTR` is expected, not only from the application: the runtime
   signals threads too. `Wait` retries with the remaining time.
 - `WriteScope` holds only an id; the writer holds the state. So copies of a
