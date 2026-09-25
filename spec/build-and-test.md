@@ -407,12 +407,13 @@ the torture test on the board with `TMPDIR=/dev/shm`.
 Record in the release notes, under "On-target measurements", the
 benchmark's CSV output with its header lines. It covers the publish, read
 and peek latency for 16 B, 256 B, 4 KiB and 64 KiB payloads, uncontended
-and against a writer in another process (with the `BUSY` count), the
-wake-up latency of `wait` and of polling a `NO_NOTIFY` channel, and the
-cost of `clock_gettime`, both through libc and as a raw syscall. Note
-whether it ran under `chrt`. Also commit the CSVs and the torture output to
-`bench/results/<date>-bbb-<commit>/`, the baseline the next run compares
-against. There are no numeric targets yet; the first measurement is in
+and against a writer in another process (with the `BUSY` count), a
+producer filling the payload and publishing it against filling it in place
+through `begin`/`commit`, the wake-up latency of `wait` and of polling a
+`NO_NOTIFY` channel, and the cost of `clock_gettime`, both through libc and
+as a raw syscall. Note whether it ran under `chrt`. Also commit the CSVs
+and the torture output to `bench/results/<date>-bbb-<commit>/`, the
+baseline the next run compares against. There are no numeric targets yet; the first measurement is in
 `bench/results/2026-09-24-bbb-6511c25/`.
 
 CI builds `psmsgr-bench` (in `dev`, `dev-clang` and `armhf-release`) but

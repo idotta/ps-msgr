@@ -82,7 +82,8 @@ publishing for the BeagleBone Black.
   `false` or `null` while there is no value.
 - Zero-copy publish: `using var scope = w.Begin();` write into
   `scope.Buffer`, then `scope.Commit(length)`. Disposing the scope without a
-  commit aborts it.
+  commit aborts it. It pays off only when the value is built in
+  `scope.Buffer` and is a few KiB or larger; otherwise use `Publish`.
 - `TryPeek` returns the generation, length and timestamp without copying.
   `info.Age` is the value's age on `CLOCK_MONOTONIC` (`Clock.NowNs()`).
 - `Wait` takes a `CancellationToken`; `Timeout.InfiniteTimeSpan` waits

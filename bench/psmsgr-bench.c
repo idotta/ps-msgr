@@ -36,7 +36,8 @@ static const char usage_text[] =
     "usage: psmsgr-bench [options]\n"
     "\n"
     "Measures publish, read and peek latency for 16 B, 256 B, 4 KiB and 64 KiB\n"
-    "payloads, uncontended and against a writer in another process, the wake-up\n"
+    "payloads, uncontended and against a writer in another process, publish\n"
+    "against the zero-copy begin/commit with the producer's fill, the wake-up\n"
     "latency of wait (and of polling on a NO_NOTIFY channel), and the cost of\n"
     "clock_gettime. All figures are ns per operation.\n"
     "\n"
@@ -151,7 +152,7 @@ static void print_table_header(void)
     if (cfg.csv)
         puts("test,size_bytes,n,min_ns,median_ns,p99_ns,max_ns,busy,missed");
     else
-        printf("%-26s %8s %9s %9s %9s %9s %9s  %s\n", "test", "size", "n", "min", "median", "p99",
+        printf("%-28s %8s %9s %9s %9s %9s %9s  %s\n", "test", "size", "n", "min", "median", "p99",
                "max", "notes");
 }
 
@@ -181,7 +182,7 @@ static void print_row(const char *test, uint32_t size, samples *s, uint32_t per,
             printf("%" PRId64, missed);
         putchar('\n');
     } else {
-        printf("%-26s %8s %9" PRIu64 " %9.0f %9.0f %9.0f %9.0f", test, sz, s->seen, min, med, p99,
+        printf("%-28s %8s %9" PRIu64 " %9.0f %9.0f %9.0f %9.0f", test, sz, s->seen, min, med, p99,
                max);
         if (busy >= 0)
             printf("  busy %" PRId64, busy);
@@ -292,6 +293,7 @@ typedef struct op_ctx {
     psmsgr_state_reader *r;
     unsigned char *buf;
     uint32_t size;
+    unsigned char fill; /* byte for the fill rows, changed on every fill */
 } op_ctx;
 
 typedef void (*op_fn)(op_ctx *c);
@@ -341,6 +343,37 @@ static void op_publish(op_ctx *c)
     int rc = psmsgr_state_publish(c->w, c->buf, c->size, NULL);
     if (rc != PSMSGR_OK)
         die("publish", rc);
+}
+
+/* The producer writes the whole payload: into its own buffer and then
+ * publish copies it, or in place between begin and commit. */
+static void op_fill_publish(op_ctx *c)
+{
+    memset(c->buf, c->fill++, c->size);
+    op_publish(c);
+}
+
+static void op_begin_fill_commit(op_ctx *c)
+{
+    void *p;
+    int rc = psmsgr_state_begin(c->w, &p);
+    if (rc != PSMSGR_OK)
+        die("begin", rc);
+    memset(p, c->fill++, c->size);
+    rc = psmsgr_state_commit(c->w, c->size, NULL);
+    if (rc != PSMSGR_OK)
+        die("commit", rc);
+}
+
+static void op_begin_commit(op_ctx *c)
+{
+    void *p;
+    int rc = psmsgr_state_begin(c->w, &p);
+    if (rc != PSMSGR_OK)
+        die("begin", rc);
+    rc = psmsgr_state_commit(c->w, c->size, NULL);
+    if (rc != PSMSGR_OK)
+        die("commit", rc);
 }
 
 static void op_read(op_ctx *c)
@@ -427,6 +460,9 @@ static void bench_uncontended(void)
         c.w = open_writer(chan_name(name, sizeof name, "nonotify", size), size,
                           PSMSGR_STATE_NO_NOTIFY);
         measure("publish NO_NOTIFY", op_publish, &c, cfg.batch, cfg.iterations);
+        measure("fill/publish NO_NOTIFY", op_fill_publish, &c, cfg.batch, cfg.iterations);
+        measure("begin/fill/commit NO_NOTIFY", op_begin_fill_commit, &c, cfg.batch, cfg.iterations);
+        measure("begin/commit NO_NOTIFY", op_begin_commit, &c, cfg.batch, cfg.iterations);
         psmsgr_state_writer_close(c.w);
 
         c.w = open_writer(chan_name(name, sizeof name, "plain", size), size, 0);
