@@ -680,6 +680,7 @@ public sealed class StateTests : ChannelTest
         Assert.Equal("channel busy: 'chan'", e.Message);
         Assert.Equal(0, e.Errno);
         Assert.Equal("Permission denied (errno 13)", new PsMsgrException(PsMsgrError.Sys, errno: 13).Message);
+        Assert.Equal("Unknown error 99999 (errno 99999)", new PsMsgrException(PsMsgrError.Sys, errno: 99999).Message);
         Assert.Equal("unknown error", new PsMsgrException((PsMsgrError)(-99)).Message);
         Assert.Equal("custom", new PsMsgrException(PsMsgrError.Inval, "custom").Message);
     }

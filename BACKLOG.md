@@ -31,8 +31,6 @@ process requires them.
   "externally-managed-environment". Document a venv.
 - [ ] **Debian packages:** install `copyright`/`LICENSE`
   (`CMakeLists.txt:140-173`).
-- [ ] C#: `Errors.cs:72` uses `strerror`. Use `strerror_r`, which is
-  thread-safe.
 - [ ] C#: the README usage snippet doesn't compile (CS8803, type before
   top-level statements).
 - [ ] Python: `wait(0, 1e300)` raises `OverflowError` (`_state.py:362`). Clamp
