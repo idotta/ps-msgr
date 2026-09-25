@@ -26,9 +26,6 @@ process requires them.
 
 ## Should fix
 
-- [ ] **Python install on Debian 13.** `pip install bindings/python`
-  (`bindings/python/README.md:14`, `examples/README.md:113`) fails with PEP 668
-  "externally-managed-environment". Document a venv.
 - [ ] **Debian packages:** install `copyright`/`LICENSE`
   (`CMakeLists.txt:140-173`).
 - [ ] C#: `Errors.cs:72` uses `strerror`. Use `strerror_r`, which is

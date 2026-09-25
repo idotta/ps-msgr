@@ -72,7 +72,7 @@ Then any writer × reader combination runs in a shell in the container
 
 ```sh
 export PSMSGR_LIBRARY=$PWD/build/release/libpsmsgr.so.1   # for Python and C#
-export PYTHONPATH=$PWD/bindings/python/src                 # or pip install bindings/python
+export PYTHONPATH=$PWD/bindings/python/src                 # or install it in a venv
 examples/python/motor_reader.py --count 20 &
 build/release/examples/csharp/MotorWriter/MotorWriter --count 30
 ```
@@ -110,9 +110,16 @@ The board needs the `libpsmsgr1` package from the `armhf-release` preset
   `build/armhf-release/examples/c/motor_writer` and `motor_reader`: copy
   them to the board. Or build them there with `libpsmsgr-dev` installed:
   `cmake -S examples/c -B build && cmake --build build`.
-- **Python:** build the wheel (`python3 -m pip wheel --no-deps
-  bindings/python`; it is pure Python), `pip install` it on the board, and
-  copy `examples/python/*.py`.
+- **Python:** build the wheel (`python3 -m pip wheel --no-deps --wheel-dir
+  dist bindings/python`; it is pure Python), copy it and
+  `examples/python/*.py` to the board, and install it there in a venv
+  (Debian's `python3-venv` package) without network:
+
+  ```sh
+  python3 -m venv .venv
+  .venv/bin/pip install --no-index ps_msgr-*.whl
+  .venv/bin/python motor_reader.py --count 20
+  ```
 - **C#:** publish with Native AOT for `linux-arm` in the build container
   (32-bit ARM is a Native AOT target since .NET 9). The container's host
   `objcopy` does not read ARM binaries, so name the cross one:

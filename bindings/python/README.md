@@ -8,11 +8,16 @@ specified in [`spec/bindings.md`](../../spec/bindings.md).
 ## Install
 
 The binding needs the C library, `libpsmsgr.so.1`: on the target, install
-the `libpsmsgr1` package. Then install the binding:
+the `libpsmsgr1` package. Then install the binding in a virtual
+environment (Debian doesn't let `pip` install into the system Python; there
+`python3 -m venv` needs the `python3-venv` package):
 
 ```sh
-pip install bindings/python
+python3 -m venv .venv
+.venv/bin/pip install bindings/python
 ```
+
+and run programs with `.venv/bin/python`.
 
 At import, `ps_msgr` loads `libpsmsgr.so.1` through the normal library
 search path. To use another copy, such as a build tree, set

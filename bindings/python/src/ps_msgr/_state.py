@@ -18,7 +18,7 @@ from ._errors import PayloadTooLargeError, error
 StrPath = str | os.PathLike[str]
 
 _U32_MAX: Final = 0xFFFF_FFFF
-# Caps finite timeouts (about 292 years) so t * 1e9 can't overflow to inf.
+# Caps finite timeouts (about 292 years) so int() never sees inf.
 _TIMEOUT_NS_MAX: Final = (1 << 63) - 1
 # wait() waits in slices so that a close() from another thread stops it.
 _WAIT_SLICE_MS: Final = 100
