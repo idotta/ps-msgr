@@ -35,7 +35,5 @@ process requires them.
   thread-safe.
 - [ ] C#: the README usage snippet doesn't compile (CS8803, type before
   top-level statements).
-- [ ] Python: `wait(0, 1e300)` raises `OverflowError` (`_state.py:362`). Clamp
-  large finite timeouts.
 - [ ] Examples: `examples/c/motor_writer.c:96` ignores the result of
   `publish`.

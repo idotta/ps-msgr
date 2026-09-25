@@ -18,6 +18,8 @@ from ._errors import PayloadTooLargeError, error
 StrPath = str | os.PathLike[str]
 
 _U32_MAX: Final = 0xFFFF_FFFF
+# Caps finite timeouts (about 292 years) so t * 1e9 can't overflow to inf.
+_TIMEOUT_NS_MAX: Final = (1 << 63) - 1
 # wait() waits in slices so that a close() from another thread stops it.
 _WAIT_SLICE_MS: Final = 100
 # A TOOSMALL after resizing to the described capacity means the channel was
@@ -382,7 +384,7 @@ class StateReader:
             if not t >= 0:
                 raise ValueError(f"timeout must be non-negative or None, not {timeout!r}")
             if t != math.inf:
-                deadline = time.monotonic_ns() + int(t * 1e9)
+                deadline = time.monotonic_ns() + int(min(t * 1e9, _TIMEOUT_NS_MAX))
         h = self._enter()
         try:
             while True:
