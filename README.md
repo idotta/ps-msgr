@@ -22,9 +22,10 @@ Black, the C library passed the torture test and was benchmarked
 and the bindings, the interop suite and the examples ran, with one
 timing-sensitive interop test failing
 ([`bench/results/2026-09-24-bbb-bindings-ebc2ba0/`](bench/results/2026-09-24-bbb-bindings-ebc2ba0/REPORT.md)).
-The Go binding, added after 1.0.0, is tested in the build container
-(x86-64, and linux/arm under qemu) and has not run on the board. See
-[`spec/`](spec/README.md).
+The Go binding is tested in the build container (x86-64, and linux/arm
+under qemu) and passed its tests on the board
+([`bench/results/2026-09-25-bbb-go-803cba5/`](bench/results/2026-09-25-bbb-go-803cba5/REPORT.md)).
+See [`spec/`](spec/README.md).
 
 | Directory | Contents |
 |---|---|

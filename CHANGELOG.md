@@ -7,13 +7,6 @@ as described in [`spec/README.md`](spec/README.md).
 
 ## [Unreleased]
 
-### Added
-
-- `psmsgr`: the Go binding (cgo, Go ≥ 1.24, no dependencies, optionally
-  linked statically with the `psmsgr_static` build tag), in `bindings/go/`,
-  and a CI job that also runs its tests for `linux/arm` under qemu. The
-  build container gets trixie's `golang-go`.
-
 ## [1.0.0] - 2026-09-25
 
 ### Added
@@ -30,6 +23,10 @@ as described in [`spec/README.md`](spec/README.md).
   compatible, no dependencies), in `bindings/csharp/`. CI builds its NuGet
   package.
 - Build container: the .NET SDK 10 from Microsoft's apt repository.
+- `psmsgr`: the Go binding (cgo, Go ≥ 1.24, no dependencies, optionally
+  linked statically with the `psmsgr_static` build tag), in `bindings/go/`,
+  and a CI job that also runs its tests for `linux/arm` under qemu. The
+  build container gets trixie's `golang-go`.
 - `interop/`: cross-language tests with a C, a Python and a C# (Native AOT)
   agent, every writer against every reader, and a CI job for them. They
   replace the interop tests of the Python and C# bindings.
@@ -41,6 +38,8 @@ as described in [`spec/README.md`](spec/README.md).
 - `bench/results/2026-09-24-bbb-bindings-ebc2ba0/`: first run of the Python
   and C# bindings (Native AOT for `linux-arm`), the interop suite and the
   examples on a BeagleBone Black.
+- `bench/results/2026-09-25-bbb-go-803cba5/`: first run of the Go binding
+  on a BeagleBone Black, linked dynamically and statically.
 - `abi/`: `abidw` snapshots of the 1.0.0 public ABI for amd64 and armhf.
 
 ### On-target measurements

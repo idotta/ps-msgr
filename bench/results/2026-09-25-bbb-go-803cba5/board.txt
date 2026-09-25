@@ -1,0 +1,18 @@
+date: 2026-09-25T18:56:21+00:00
+kernel: Linux 6.18.39-bone44-preditor.2 #1 SMP PREEMPT 2026-07-20T17:07:34-05:00 armv7l
+os: Debian GNU/Linux 13 (trixie) (13.5)
+board: TI AM335x BeagleBone Black
+model name	: ARMv7 Processor rev 2 (v7l)
+cpus: 1
+mem: 481 MiB total, 410 MiB available
+governor: performance, 1000 MHz
+clocksource: dmtimer
+cpuidle: arm_idle/ladder
+  state0: WFI latency=1us disable=0
+  state1: mpu_gate latency=130us disable=0
+/dev/shm: 241M tmpfs
+glibc: ldd (Debian GLIBC 2.41-12+deb13u3) 2.41
+package: libpsmsgr-dev 1.0.0 armhf
+package: libpsmsgr1 1.0.0 armhf
+package: psmsgr-tools 1.0.0 armhf
+libpsmsgr.so.1.0.0 sha256: 30c0ee5071f74de80f31f3003ff83edacb0427fb614cb59e64311c0509bef804 (same as the armhf-release .deb)

@@ -1,0 +1,35 @@
+goos: linux
+goarch: arm
+pkg: github.com/ps-solucoes/ps-msgr/bindings/go/psmsgr
+cpu: ARMv7 Processor rev 2 (v7l)
+BenchmarkPublish16 	   92530	     13661 ns/op	   1.17 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish16 	   89829	     13995 ns/op	   1.14 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish16 	   80682	     13787 ns/op	   1.16 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish16 	   83947	     13859 ns/op	   1.15 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish16 	   78132	     14093 ns/op	   1.14 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish4K 	   61954	     20302 ns/op	 201.76 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish4K 	   54818	     20718 ns/op	 197.71 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish4K 	   53828	     20918 ns/op	 195.82 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish4K 	   58732	     20771 ns/op	 197.20 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPublish4K 	   56442	     19958 ns/op	 205.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead16    	  222565	      4856 ns/op	   3.29 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead16    	  246008	      4792 ns/op	   3.34 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead16    	  226876	      4964 ns/op	   3.22 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead16    	  228002	      4748 ns/op	   3.37 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead16    	  244533	      4866 ns/op	   3.29 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead4K    	  121840	     10620 ns/op	 385.70 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead4K    	  100185	     10743 ns/op	 381.26 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead4K    	  107175	     11057 ns/op	 370.43 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead4K    	  102447	     10984 ns/op	 372.90 MB/s	       0 B/op	       0 allocs/op
+BenchmarkRead4K    	  122248	     10652 ns/op	 384.53 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPeek      	  312967	      3749 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPeek      	  300450	      3821 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPeek      	  341038	      3862 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPeek      	  288817	      3719 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPeek      	  331225	      3889 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadValue 	  188070	      6286 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadValue 	  188130	      6332 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadValue 	  198776	      6225 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadValue 	  188508	      6351 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadValue 	  169644	      6346 ns/op	       0 B/op	       0 allocs/op
+PASS
