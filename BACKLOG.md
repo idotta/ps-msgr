@@ -24,10 +24,6 @@ process requires them.
   - After a major bump, skip the comparison until that major's first
     release, which becomes the new baseline. Breaking changes stay allowed;
     they need a major bump.
-- [ ] **Binding versions.** `bindings/python/pyproject.toml:8` and
-  `bindings/csharp/PsMsgr/PsMsgr.csproj:10` are `0.1.0`, while the library is
-  1.0.0. Decide on the bindings' stability promise and set their versions to
-  match.
 - [ ] **Release docs.**
   - Set every `spec/*.md` from `Status: draft` to final.
   - Add a `[1.0.0]` section with on-target measurements to `CHANGELOG.md`.

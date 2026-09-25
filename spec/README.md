@@ -68,8 +68,12 @@ Three independent version numbers:
 2. **Library version** (SemVer). The library major version equals the
    SONAME number (`libpsmsgr.so.1`) and changes only on C ABI breaks. The
    first release is 1.0.0; until then nothing is stable.
-3. **Binding package versions** (SemVer). Each binding declares the
-   minimum library version it needs and checks it at load time.
+3. **Binding package versions** (SemVer), independent of the library's.
+   Each binding's first release is 1.0.0, together with library 1.0.0.
+   A binding's major version changes on a breaking change to its own API,
+   and whenever the library major version it loads changes, since it loads
+   `libpsmsgr.so.<major>` by name. Each binding declares the minimum
+   library version it needs and checks it at load time.
 
 ## Future components (non-normative)
 
