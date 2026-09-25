@@ -14,16 +14,6 @@ process requires them.
   - Re-run `psmsgr-bench` and the torture test on the BeagleBone Black and
     record the results, as `spec/build-and-test.md` requires before each
     release.
-- [ ] **ABI baseline at the tag.**
-  - `abi_check` compares the map, the headers and the library of the same
-    commit. A symbol removed or renamed in all three passes, and it doesn't
-    see struct layouts (`psmsgr_state_options`, `_info`, `_desc`) at all.
-  - At the tag, record the 1.0.0 library's ABI (`abidw`, from
-    `abigail-tools`), and have CI run `abidiff` against the latest release
-    of the same major.
-  - After a major bump, skip the comparison until that major's first
-    release, which becomes the new baseline. Breaking changes stay allowed;
-    they need a major bump.
 - [ ] **Release docs.**
   - Set every `spec/*.md` from `Status: draft` to final.
   - Add a `[1.0.0]` section with on-target measurements to `CHANGELOG.md`.

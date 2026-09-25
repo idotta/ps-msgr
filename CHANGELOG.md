@@ -21,6 +21,8 @@ as described in [`spec/README.md`](spec/README.md).
   compatible, no dependencies), in `bindings/csharp/`. CI builds its NuGet
   package.
 - Build container: the .NET SDK 10 from Microsoft's apt repository.
+- `abi/`: the ABI baselines, which the `abi_compat` test compares the
+  library with using `abidiff` (`abigail-tools`, added to the build container).
 - `interop/`: cross-language tests with a C, a Python and a C# (Native AOT)
   agent, every writer against every reader, and a CI job for them. They
   replace the interop tests of the Python and C# bindings.

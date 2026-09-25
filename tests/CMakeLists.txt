@@ -85,3 +85,37 @@ add_test(NAME abi_check
         -DREADELF=${CMAKE_READELF}
         -P ${PROJECT_SOURCE_DIR}/cmake/CheckAbi.cmake)
 set_tests_properties(abi_check PROPERTIES LABELS abi)
+
+# The baseline of the latest release of this major, per architecture.
+if(CMAKE_LIBRARY_ARCHITECTURE)
+    set(_abi_arch ${CMAKE_LIBRARY_ARCHITECTURE})
+else()
+    set(_abi_arch ${CMAKE_SYSTEM_PROCESSOR})
+endif()
+set(_abi_baseline
+    ${PROJECT_SOURCE_DIR}/abi/libpsmsgr.so.${PROJECT_VERSION_MAJOR}-${_abi_arch}.abi)
+find_program(PSMSGR_ABIDIFF abidiff)
+find_program(PSMSGR_ABIDW abidw)
+
+add_test(NAME abi_compat
+    COMMAND ${CMAKE_COMMAND}
+        -DLIB=$<TARGET_FILE:psmsgr>
+        -DBASELINE=${_abi_baseline}
+        -DSUPPRESSIONS=${PROJECT_SOURCE_DIR}/abi/libpsmsgr.suppr
+        -DABIDIFF=${PSMSGR_ABIDIFF}
+        -P ${PROJECT_SOURCE_DIR}/cmake/CheckAbiCompat.cmake)
+set_tests_properties(abi_compat PROPERTIES LABELS abi
+    SKIP_REGULAR_EXPRESSION "abi_compat skipped")
+
+# Writes the baseline into the source tree, at each release (build-and-test.md).
+# Opaque handles are recorded as declarations only.
+if(PSMSGR_ABIDW)
+    add_custom_target(abi_baseline
+        COMMAND ${PSMSGR_ABIDW} --headers-dir ${PROJECT_SOURCE_DIR}/include
+            --drop-private-types --drop-undefined-syms --no-elf-needed
+            --no-corpus-path --no-comp-dir-path --short-locs --type-id-style hash
+            --out-file ${_abi_baseline} $<TARGET_FILE:psmsgr>
+        COMMENT "Recording ${_abi_baseline}"
+        VERBATIM)
+    add_dependencies(abi_baseline psmsgr)
+endif()

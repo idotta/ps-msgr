@@ -23,6 +23,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN dpkg --add-architecture armhf \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
+        abigail-tools \
         build-essential \
         crossbuild-essential-armhf \
         libc6:armhf \

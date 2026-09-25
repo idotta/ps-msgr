@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# abidiff suppressions for the abi_compat test: changes that are compatible
+# by design (spec/c-api.md).
+
+# Opaque handles: callers only hold pointers to them.
+[suppress_type]
+  type_kind = struct
+  name_regexp = ^psmsgr_state_(writer|reader)$
+
+# Appended fields: the caller passes its sizeof, and the library reads or
+# writes only that many bytes.
+[suppress_type]
+  type_kind = struct
+  name_regexp = ^psmsgr_state_(options|desc)$
+  has_data_member_inserted_at = end
+  has_size_change = yes

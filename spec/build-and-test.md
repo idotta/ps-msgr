@@ -12,7 +12,8 @@ README.md
 CHANGELOG.md
 CMakeLists.txt                libpsmsgr
 CMakePresets.json
-cmake/                        toolchain file, package config, ABI check
+cmake/                        toolchain file, package config, ABI checks
+abi/                          ABI baselines of the latest release, abidiff suppressions
 include/psmsgr/psmsgr.h
 include/psmsgr/state.h
 src/                          implementation (state.c, futex/lock helpers, …)
@@ -145,6 +146,17 @@ the library get correct package dependencies.
   symbols. Node names must be `PSMSGR_<major>[.<minor>]`, with the
   library's major and a minor no newer than the library's. The SONAME must
   be `libpsmsgr.so.<major>`.
+- **ABI compatibility** (`abi_compat`): CI fails unless `abidiff` (from
+  `abigail-tools`) finds the library compatible with the baseline of the
+  latest release of the same major,
+  `abi/libpsmsgr.so.<major>-<multiarch>.abi`. That covers struct layouts
+  and function signatures, which `abi_check` doesn't see, and symbols
+  removed from the map, the headers and the library at once. Added
+  functions pass, and so do the changes `abi/libpsmsgr.suppr` allows: the
+  opaque handles, and fields appended to `psmsgr_state_options` and
+  `psmsgr_state_desc` (c-api.md). The test is skipped where there is no
+  baseline: on arm64, and after a major bump until that major's first
+  release. Breaking changes stay allowed; they need a major bump.
 - **No `libatomic`:** CI fails if `nm -D libpsmsgr.so.1` lists any
   `__atomic_*` symbol, or if `readelf -d` shows `libatomic` in `NEEDED`.
   Either would mean a non-lock-free (e.g. 64-bit) atomic slipped in, which
@@ -417,3 +429,16 @@ against. There are no numeric targets yet; the first measurement is in
 
 CI builds `psmsgr-bench` (in `dev`, `dev-clang` and `armhf-release`) but
 never runs it: numbers from x86 or qemu mean nothing.
+
+## ABI baseline (at each release)
+
+In the release commit, record the library's ABI for amd64 and armhf:
+
+```
+docker/run.sh sh -c 'for p in release armhf-release; do
+    cmake --preset $p && cmake --build build/$p --target abi_baseline; done'
+```
+
+This rewrites `abi/libpsmsgr.so.<major>-*.abi` with `abidw`. Review the
+diff: apart from line numbers, it should show only the additions listed in
+`CHANGELOG.md`. After a major bump, delete the old major's baselines.
