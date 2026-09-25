@@ -47,6 +47,7 @@ a command in it with the repository mounted:
 
 ```sh
 docker/run.sh cmake --workflow --preset dev            # host: debug, ASan+UBSan, tests
+PSMSGR_NO_ASLR=1 docker/run.sh cmake --workflow --preset tsan  # ThreadSanitizer (needs ASLR off)
 docker/run.sh cmake --workflow --preset armhf          # BeagleBone Black: tests under qemu
 docker/run.sh cmake --workflow --preset armhf-release  # + libpsmsgr1, -dev and psmsgr-tools .debs
 docker/run.sh bindings/python/check.sh                 # Python binding, after the release preset

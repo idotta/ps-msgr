@@ -38,11 +38,9 @@ jobs:
 
       # ThreadSanitizer cannot map its shadow memory with the runner's
       # default ASLR entropy.
-      - name: Reduce ASLR entropy for TSan
-        if: matrix.preset == 'tsan'
-        run: sudo sysctl vm.mmap_rnd_bits=28
-
       - name: Configure, build, test (and package)
+        env:
+          PSMSGR_NO_ASLR: ${{ matrix.preset == 'tsan' && '1' || '0' }}
         run: docker/run.sh cmake --workflow --preset ${{ matrix.preset }}
 
       - name: Upload packages
