@@ -1,7 +1,6 @@
 # ps-msgr specifications
 
-Status: **draft**. Change freely until the first tagged release; after that,
-changes follow the versioning rules below.
+Status: **final**. Changes follow the versioning rules below.
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are used as in
 RFC 2119. Sections marked *non-normative* are guidance only.

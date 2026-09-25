@@ -130,4 +130,7 @@ The board needs the `libpsmsgr1` package from the `armhf-release` preset
   `build/release/examples/csharp-linux-arm/`, on x86-64 hosts. They also
   run in the container under qemu, against the `armhf-release` library:
   `qemu-arm -L /usr/arm-linux-gnueabihf -E LD_LIBRARY_PATH=<dir with its libpsmsgr.so.1> …`.
-  None of the examples has run on the board yet.
+  On the board, all 9 writer × reader pairs, the standalone C build,
+  `writer gone`, `stale` and the payload-type mismatch passed, and all
+  six programs exit 0 on Ctrl-C
+  ([`bench/results/2026-09-24-bbb-bindings-ebc2ba0/`](../bench/results/2026-09-24-bbb-bindings-ebc2ba0/REPORT.md#examples)).

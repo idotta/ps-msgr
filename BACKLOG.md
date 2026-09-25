@@ -3,17 +3,6 @@
 Items found in the pre-1.0 review. Remove an item in the pull request that
 resolves it.
 
-## Before tagging 1.0
-
-These can't be fixed after the tag without a SONAME bump, or the release
-process requires them.
-
-- [ ] **Release docs.**
-  - Set every `spec/*.md` from `Status: draft` to final.
-  - Add a `[1.0.0]` section with on-target measurements to `CHANGELOG.md`.
-  - Remove "on-target validation is pending" from `README.md:18`, and "None
-    of the examples has run on the board yet" from `examples/README.md:133`.
-
 ## Should fix
 
 - [ ] **Python install on Debian 13.** `pip install bindings/python`

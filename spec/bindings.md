@@ -1,6 +1,6 @@
 # Bindings — Python and C#
 
-Status: **draft**.
+Status: **final**.
 
 Both bindings are thin wrappers over `libpsmsgr.so.1`. They MUST NOT access
 the channel files directly and MUST NOT reimplement any part of

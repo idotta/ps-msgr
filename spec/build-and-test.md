@@ -1,6 +1,6 @@
 # Build, packaging and test
 
-Status: **draft**.
+Status: **final**.
 
 ## Repository layout
 
@@ -439,8 +439,8 @@ through `begin`/`commit`, the wake-up latency of `wait` and of polling a
 `NO_NOTIFY` channel, and the cost of `clock_gettime`, both through libc and
 as a raw syscall. Note whether it ran under `chrt`. Also commit the CSVs
 and the torture output to `bench/results/<date>-bbb-<commit>/`, the
-baseline the next run compares against. There are no numeric targets yet; the first measurement is in
-`bench/results/2026-09-24-bbb-6511c25/`.
+baseline the next run compares against. There are no numeric targets yet; the current baseline is
+`bench/results/2026-09-25-bbb-adea019/`.
 
 CI builds `psmsgr-bench` (in `dev`, `dev-clang` and `armhf-release`) but
 never runs it: numbers from x86 or qemu mean nothing.

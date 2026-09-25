@@ -1,6 +1,6 @@
 # C API — `libpsmsgr`
 
-Status: **draft**. Protocol semantics are defined in
+Status: **final**. Protocol semantics are defined in
 [state-channel.md](state-channel.md); this document defines the interface.
 
 ## Conventions

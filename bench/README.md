@@ -88,10 +88,11 @@ was used.
 
 Also commit the CSVs and the torture output to
 `bench/results/<date>-bbb-<commit>/` (`bench-fifo.csv` is the `chrt` run),
-so the next run has a baseline to compare against. In the 2026-09-24
-baseline, the `read, writer active` and `poll wake-up, 100 us` rows have an
-unquoted comma in the test name, so they have one field more than the
-header. The torture output comes
+so the next run has a baseline to compare against. The current baseline is
+[`results/2026-09-25-bbb-adea019/`](results/2026-09-25-bbb-adea019/). In the
+earlier `2026-09-24-bbb-6511c25` run, the `read, writer active` and
+`poll wake-up, 100 us` rows have an unquoted comma in the test name, so
+they have one field more than the header. The torture output comes
 from the `test_torture` binary, run directly (6 minutes at 60 s, over
 CTest's timeout) with its channels on tmpfs:
 
