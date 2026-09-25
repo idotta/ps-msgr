@@ -42,6 +42,7 @@ RUN dpkg --add-architecture armhf \
         python3-setuptools \
         python3-venv \
         zlib1g-dev \
+        abigail-tools \
  && rm -rf /var/lib/apt/lists/*
 
 # The .NET SDK (current LTS) for the C# binding, from Microsoft's apt

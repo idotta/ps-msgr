@@ -8,10 +8,6 @@ resolves it.
 These can't be fixed after the tag without a SONAME bump, or the release
 process requires them.
 
-- [ ] **ABI snapshot at the tag.** Record the 1.0.0 library's ABI with
-  `abidw` (from `abigail-tools`), so a later release can be compared with
-  `abidiff`. `abi_check` doesn't see struct layouts (`psmsgr_state_options`,
-  `_info`, `_desc`).
 - [ ] **Release docs.**
   - Set every `spec/*.md` from `Status: draft` to final.
   - Add a `[1.0.0]` section with on-target measurements to `CHANGELOG.md`.
