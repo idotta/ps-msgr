@@ -138,8 +138,10 @@ internal static unsafe class Native
     [DllImport("libdl.so.2")]
     private static extern byte* dlerror();
 
-    [DllImport("libc.so.6")]
-    internal static extern byte* strerror(int errnum);
+    // The plain glibc symbol is the GNU variant, which may ignore the buffer. The XSI one
+    // still writes "Unknown error N" when it returns EINVAL, so callers check the buffer.
+    [DllImport("libc.so.6", EntryPoint = "__xpg_strerror_r")]
+    internal static extern int strerror_r(int errnum, byte* buf, nuint buflen);
 
     [DllImport(Library)]
     internal static extern uint psmsgr_version();

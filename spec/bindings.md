@@ -226,7 +226,7 @@ Rules that keep it that way:
     (`writer_open`, `reader_open`, `read`, `peek`, `wait`, `writer_alive`,
     `describe`, `unlink`) use `SetLastError = true`. `errno` is read with
     `Marshal.GetLastWin32Error()`, which works on Unix and in AOT, and its
-    text comes from libc's `strerror`.
+    text comes from libc's XSI `strerror_r` (`__xpg_strerror_r`).
 - `PSMSGR_LIBRARY` override: `NativeLibrary` isn't available on
   `netstandard2.1`. The static
   constructor of the interop class calls
@@ -312,7 +312,7 @@ public enum PsMsgrError { Inval = -1, Sys = -2, NoData = -3, TooSmall = -4, TooB
 ```
 
 - Every failing call throws `PsMsgrException`; there are no subclasses,
-  the `Code` tells them apart. The message is `strerror(errno)` with
+  the `Code` tells them apart. The message is `strerror_r(errno)` with
   `(errno N)` for `Sys`, else `psmsgr_strerror(code)` or the binding's own
   text, followed by `: 'channel'`, e.g.
   `No such file or directory (errno 2): 'chan'`.

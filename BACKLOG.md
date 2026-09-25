@@ -26,11 +26,3 @@ process requires them.
 
 ## Should fix
 
-- [ ] **Debian packages:** install `copyright`/`LICENSE`
-  (`CMakeLists.txt:140-173`).
-- [ ] C#: `Errors.cs:72` uses `strerror`. Use `strerror_r`, which is
-  thread-safe.
-- [ ] C#: the README usage snippet doesn't compile (CS8803, type before
-  top-level statements).
-- [ ] Examples: `examples/c/motor_writer.c:96` ignores the result of
-  `publish`.
