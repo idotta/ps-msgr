@@ -112,7 +112,7 @@ typedef struct samples {
 static void samples_init(samples *s, size_t cap)
 {
     *s = (samples){ .cap = cap, .min = UINT64_MAX, .rng = 0x9E3779B97F4A7C15u };
-    s->v = malloc(cap * sizeof *s->v);
+    s->v = calloc(cap, sizeof *s->v); /* checks cap * size, which wraps on 32-bit */
     if (s->v == NULL) {
         fputs("psmsgr-bench: out of memory\n", stderr);
         exit(1);
