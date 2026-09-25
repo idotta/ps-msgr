@@ -16,6 +16,7 @@ project(psmsgr
     LANGUAGES C)
 
 include(CheckCCompilerFlag)
+include(CheckLinkerFlag)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -95,6 +96,11 @@ set_target_properties(psmsgr PROPERTIES
 set_target_properties(psmsgr_static PROPERTIES OUTPUT_NAME psmsgr)
 target_link_libraries(psmsgr PRIVATE psmsgr_flags)
 target_link_options(psmsgr PRIVATE LINKER:--version-script=${_psmsgr_map})
+# Fails the link when the map lists a symbol that is not defined (binutils 2.40).
+check_linker_flag(C "LINKER:--no-undefined-version" PSMSGR_HAVE_NO_UNDEFINED_VERSION)
+if(PSMSGR_HAVE_NO_UNDEFINED_VERSION)
+    target_link_options(psmsgr PRIVATE LINKER:--no-undefined-version)
+endif()
 # Sanitizer runtimes leave undefined symbols in shared objects (clang).
 if(NOT PSMSGR_SANITIZE)
     target_link_options(psmsgr PRIVATE LINKER:--no-undefined)

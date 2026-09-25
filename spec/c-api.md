@@ -23,8 +23,12 @@ Status: **draft**. Protocol semantics are defined in
 - The library never writes to stdout/stderr, never installs signal handlers,
   never calls `exit`/`abort`, and keeps no global mutable state apart from
   handles.
-- Only symbols prefixed `psmsgr_` are exported (`-fvisibility=hidden` plus
-  an export macro).
+- Only the `PSMSGR_API` functions are exported (`-fvisibility=hidden`, an
+  export macro, and a version script, `src/libpsmsgr.map`, that lists each
+  one). Functions released in 1.0 have version `PSMSGR_1`. Functions added
+  in 1.x go in a new node `PSMSGR_1.<minor>`, which inherits from the
+  previous node. Released nodes never change. Removing or changing an
+  exported function is an ABI break and bumps the SONAME.
 - ABI extensibility: structs passed *in* start with `struct_size`, the size
   of the caller's struct. The library reads only the fields that size covers
   and that it knows. Their `*_init` function is `static inline` in the

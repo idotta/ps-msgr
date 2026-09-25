@@ -1,7 +1,31 @@
-/* Export only the public API; everything else stays local. */
+/*
+ * The exported ABI. Every PSMSGR_API function is listed here, and nothing
+ * else is exported. A released node never changes: symbols added in 1.x go
+ * in a new node (PSMSGR_1.1 { global: ...; } PSMSGR_1;). Removing or
+ * changing a symbol is an ABI break and bumps the SONAME, which must match
+ * the base node's number. The abi_check test enforces this.
+ */
 PSMSGR_1 {
     global:
-        psmsgr_*;
+        psmsgr_now_ns;
+        psmsgr_state_abort;
+        psmsgr_state_begin;
+        psmsgr_state_commit;
+        psmsgr_state_describe_sized;
+        psmsgr_state_options_init_sized;
+        psmsgr_state_peek;
+        psmsgr_state_publish;
+        psmsgr_state_read;
+        psmsgr_state_reader_close;
+        psmsgr_state_reader_open;
+        psmsgr_state_unlink;
+        psmsgr_state_wait;
+        psmsgr_state_writer_alive;
+        psmsgr_state_writer_capacity;
+        psmsgr_state_writer_close;
+        psmsgr_state_writer_open;
+        psmsgr_strerror;
+        psmsgr_version;
     local:
         *;
 };
