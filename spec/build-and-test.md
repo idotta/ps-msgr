@@ -166,11 +166,13 @@ the library get correct package dependencies.
           abi/libpsmsgr-<version>-amd64.abi build/release/libpsmsgr.so.<new>
   ```
 
-  Exit status 0 means no change. Bit 8 (incompatible change, e.g. a
-  removed symbol) requires a SONAME bump. Bit 4 alone (ABI change) does
-  too, unless every reported change is an added function or variable
-  (which needs a new version node, c-api.md): abidiff reports a changed
-  struct size or layout with bit 4 only.
+  Exit status 0 means no change. The status is a bit mask: value 8
+  (`ABIDIFF_ABI_INCOMPATIBLE_CHANGE`, e.g. a removed symbol) always comes
+  with 4, so an incompatible change exits 12, and requires a SONAME bump.
+  Value 4 alone (`ABIDIFF_ABI_CHANGE`) does too, unless every reported
+  change is an added function or variable (which needs a new version
+  node, c-api.md): abidiff reports a changed struct size or layout with 4
+  only.
 - **No `libatomic`:** CI fails if `nm -D libpsmsgr.so.1` lists any
   `__atomic_*` symbol, or if `readelf -d` shows `libatomic` in `NEEDED`.
   Either would mean a non-lock-free (e.g. 64-bit) atomic slipped in, which
