@@ -33,6 +33,13 @@ static int usage(void)
     return 2;
 }
 
+static int fail(int rc)
+{
+    fprintf(stderr, "motor_writer: %s: %s\n", MOTOR_CHANNEL,
+            rc == PSMSGR_E_SYS ? strerror(errno) : psmsgr_strerror(rc));
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     static const struct option longopts[] = {
@@ -77,14 +84,12 @@ int main(int argc, char **argv)
 
     psmsgr_state_writer *w;
     int rc = psmsgr_state_writer_open(MOTOR_CHANNEL, &opt, &w);
-    if (rc != PSMSGR_OK) {
-        fprintf(stderr, "motor_writer: %s: %s\n", MOTOR_CHANNEL,
-                rc == PSMSGR_E_SYS ? strerror(errno) : psmsgr_strerror(rc));
-        return 1;
-    }
+    if (rc != PSMSGR_OK)
+        return fail(rc);
 
     const uint64_t period_ns = (uint64_t)(1e9 / rate);
     uint64_t next_ns = psmsgr_now_ns(); /* CLOCK_MONOTONIC, like clock_nanosleep below */
+    int status = 0;
     for (uint64_t seq = 1; !stop; seq++) {
         struct motor_status s = {
             .sequence = seq,
@@ -93,7 +98,11 @@ int main(int argc, char **argv)
             .temperature_c = 40.0f + (float)(seq % 40) * 0.5f,
         };
         /* Copies the struct into the channel; readers never see half of it. */
-        psmsgr_state_publish(w, &s, sizeof s, NULL);
+        rc = psmsgr_state_publish(w, &s, sizeof s, NULL);
+        if (rc != PSMSGR_OK) {
+            status = fail(rc);
+            break;
+        }
         printf("seq=%" PRIu64 " speed=%.1f rpm current=%.2f A temperature=%.1f C\n", s.sequence,
                (double)s.speed_rpm, (double)s.current_a, (double)s.temperature_c);
         if (seq == count)
@@ -108,5 +117,5 @@ int main(int argc, char **argv)
     /* Releases the writer lock; the channel and its last value stay, and
      * readers see writer_alive() turn false. */
     psmsgr_state_writer_close(w);
-    return 0;
+    return status;
 }
