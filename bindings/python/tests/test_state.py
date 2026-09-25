@@ -402,6 +402,36 @@ def test_wait_not_supported_without_notify(tmp_path: Path) -> None:
         assert r.describe() == ChannelDesc(8, 2, 0, False)
 
 
+def test_close_stops_wait(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    closed: list[object] = []
+    close = StateReader._close_fn
+
+    def recording_close(h: object) -> None:
+        closed.append(h)
+        close(h)
+
+    monkeypatch.setattr(StateReader, "_close_fn", staticmethod(recording_close))
+    with StateWriter(CHAN, 8, directory=tmp_path) as w:
+        gen = w.publish(b"a")
+        for timeout in (None, 30):
+            closed.clear()
+            r = StateReader(CHAN, directory=tmp_path)
+            with ThreadPoolExecutor(1) as pool:
+                waiting = pool.submit(r.wait, gen, timeout)
+                time.sleep(0.05)  # likely blocked by now; the test holds either way
+                t0 = time.monotonic()
+                r.close()
+                assert r.closed
+                with pytest.raises(ValueError, match="closed"):
+                    waiting.result(timeout=10)
+                assert time.monotonic() - t0 < 2
+            assert len(closed) == 1  # by the waiter, once it no longer used the handle
+            r.close()
+            assert len(closed) == 1
+            with pytest.raises(ValueError, match="closed"):
+                r.writer_alive()
+
+
 def _alarm(handler: object, seconds: float, interval: float = 0.0) -> object:
     old = signal.signal(signal.SIGALRM, handler)
     signal.setitimer(signal.ITIMER_REAL, seconds, interval)

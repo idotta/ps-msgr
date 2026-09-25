@@ -32,16 +32,6 @@ process requires them.
 
 ## Should fix
 
-- [ ] **Use after free: closing a reader during `wait`.**
-  - C#: `StateReader` passes `DangerousGetHandle()` (`StateReader.cs:307`)
-    without `DangerousAddRef`/`DangerousRelease`. `Dispose()` from another
-    thread during `Wait` or `IsWriterAlive` frees the native handle while it
-    is in use. Guard those two calls.
-  - Python: `wait` releases the GIL, and `close()` (`_state.py:407`) frees
-    the handle underneath it. Make `close()` raise or defer while a `wait` is
-    running.
-  - Python: there is no way to stop a thread blocked in
-    `wait(timeout=None)`.
 - [ ] **`psmsgr-bench` heap overflow on 32-bit.** `--iterations` accepts up
   to `UINT32_MAX` (`bench/psmsgr-bench.c:671`), and `malloc(cap * sizeof
   *s->v)` (`:115`) wraps `size_t` above 2²⁹ samples. Cap the value or check
