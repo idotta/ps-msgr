@@ -97,7 +97,8 @@ static void Run(string dir)
 
     Check(!reader.IsWriterAlive && Channel.Unlink("smoke", dir) && !Channel.Unlink("smoke", dir), "Unlink");
     var error = new PsMsgrException(PsMsgrError.Sys, errno: 2, channelName: "smoke");
-    Check(error.Code == PsMsgrError.Sys && error.Errno == 2 && error is IOException, "PsMsgrException");
+    Check(error.Code == PsMsgrError.Sys && error.Errno == 2 && error is IOException
+        && error.Message == "No such file or directory (errno 2): 'smoke'", "PsMsgrException");
 }
 
 static void Check(bool condition, string what)
