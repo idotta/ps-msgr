@@ -5,7 +5,16 @@ set -m  # job control: background jobs keep the default SIGINT disposition, as f
 B=$HOME/bbb-bindings
 export PATH=$B/venv/bin:$PATH
 d=$(mktemp -d /dev/shm/sigint.XXXXXX)
-trap 'rm -rf "$d"' EXIT
+trap 'kill -KILL $(jobs -p) 2>/dev/null; rm -rf "$d"' EXIT
+trap 'exit 1' HUP INT TERM
+# SIGINT to $1, then its exit status. Still running 5 s later (e.g. SIGINT
+# ignored, as without set -m), it is killed and reported instead of hanging.
+interrupt() {
+    kill -INT $1
+    for _ in $(seq 50); do kill -0 $1 2>/dev/null || break; sleep 0.1; done
+    if kill -0 $1 2>/dev/null; then echo "still running 5 s after SIGINT, killed"; kill -KILL $1; fi
+    wait $1
+}
 set -- "c $B/build/examples/c/motor_reader" "py $B/repo/examples/python/motor_reader.py" "cs $B/cs/MotorReader/MotorReader"
 writers="cs:$B/cs/MotorWriter/MotorWriter c:$B/build/examples/c/motor_writer py:$B/repo/examples/python/motor_writer.py"
 for r in "$@"; do
@@ -18,7 +27,7 @@ for r in "$@"; do
     sleep 1.5
     $writer --dir "$d" --count 3 > "$d/w.out" 2>&1; echo "writer exit status: $?, printed $(grep -c "^seq=" "$d/w.out") values"
     sleep 1
-    kill -INT $pid; wait $pid; echo "reader exit status after SIGINT: $?"
+    interrupt $pid; echo "reader exit status after SIGINT: $?"
     cat "$d/r.out"
 done
 for w in "c $B/build/examples/c/motor_writer" "py $B/repo/examples/python/motor_writer.py" "cs $B/cs/MotorWriter/MotorWriter"; do
@@ -26,5 +35,5 @@ for w in "c $B/build/examples/c/motor_writer" "py $B/repo/examples/python/motor_
     $writer --dir "$d" > "$d/w.out" 2>&1 &
     pid=$!
     sleep 2
-    kill -INT $pid; wait $pid; echo "=== $lang writer, SIGINT after 2 s: exit status $?, $(grep -c '^seq=' "$d/w.out") values, last: $(tail -n 1 "$d/w.out")"
+    interrupt $pid; echo "=== $lang writer, SIGINT after 2 s: exit status $?, $(grep -c '^seq=' "$d/w.out") values, last: $(tail -n 1 "$d/w.out")"
 done
