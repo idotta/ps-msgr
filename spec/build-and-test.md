@@ -162,7 +162,8 @@ the library get correct package dependencies.
 - Packaging: CPack DEB for `armhf` and `amd64`, built in the trixie
   container, produces `libpsmsgr1`, `libpsmsgr-dev` and `psmsgr-tools`,
   each with its `/usr/share/doc/<package>/copyright` (machine-readable
-  format, Apache-2.0).
+  format, Apache-2.0). A plain `cmake --install` installs these three
+  files too.
   Installing the `.deb` is the supported deployment path on the BBB.
   Package dependencies come from `dpkg-shlibdeps` (the container has
   `libc6:armhf` via multiarch for that) and are therefore trixie's.
